@@ -833,25 +833,30 @@
             </div>
 
             {/* Sensor View CTA */}
-            <Card className="shadow-md bg-gradient-to-br from-blue-50 to-violet-50 border-2 border-blue-200">
-              <CardContent className="pt-6">
-                <div className="text-center space-y-3">
-                  <Icon name="activity" size={32} className="mx-auto text-blue-600" />
-                  <div className="text-blue-900 font-semibold text-lg">
-                    View Detailed Sensor Data
+            {isTracking && (
+              <Card className="shadow-md bg-gradient-to-br from-blue-50 to-violet-50 border-2 border-blue-200 animate-pulse">
+                <CardContent className="pt-6">
+                  <div className="text-center space-y-3">
+                    <Icon name="activity" size={32} className="mx-auto text-blue-600" />
+                    <div className="text-blue-900 font-semibold text-lg">
+                      View Detailed Sensor Data
+                    </div>
+                    <p className="text-sm text-blue-800">
+                      See real-time GPS speed, distance, and motion sensors. Your trip will continue tracking!
+                    </p>
+                    <a 
+                      href="/motion-test-with-gps.html?autostart=true&from=dashboard"
+                      className="inline-block w-full bg-gradient-to-r from-blue-600 to-violet-600 text-white font-semibold py-4 px-6 rounded-lg hover:from-blue-700 hover:to-violet-700 transition shadow-lg"
+                    >
+                      🔬 Open Sensor View →
+                    </a>
+                    <p className="text-xs text-blue-700">
+                      ✅ Trip continues • Use back button to return
+                    </p>
                   </div>
-                  <p className="text-sm text-blue-800">
-                    See real-time GPS, speed, and motion sensors with debug information
-                  </p>
-                  <a 
-                    href="/motion-test-with-gps.html?autostart=true&from=dashboard"
-                    className="inline-block w-full bg-gradient-to-r from-blue-600 to-violet-600 text-white font-semibold py-4 px-6 rounded-lg hover:from-blue-700 hover:to-violet-700 transition shadow-lg"
-                  >
-                    🔬 Open Sensor View
-                  </a>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </div>
       );
