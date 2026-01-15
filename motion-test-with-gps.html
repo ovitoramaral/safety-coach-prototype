@@ -303,7 +303,20 @@
       isCalibrated = false;
       calibrationCount = 0;
       startTime = Date.now();
-      totalDistance = 0;
+      
+      // Load existing trip distance from localStorage
+      try {
+        const state = JSON.parse(localStorage.getItem('safetyCoachState') || '{}');
+        if (state.currentTripDistance) {
+          totalDistance = state.currentTripDistance;
+          distanceEl.textContent = totalDistance.toFixed(3);
+        } else {
+          totalDistance = 0;
+        }
+      } catch (e) {
+        totalDistance = 0;
+      }
+      
       lastPosition = null;
 
       // Start motion sensor
@@ -367,6 +380,15 @@
         if (dist < 0.5) {
           totalDistance += dist;
           distanceEl.textContent = totalDistance.toFixed(3);
+          
+          // Save to localStorage for dashboard sync
+          try {
+            const state = JSON.parse(localStorage.getItem('safetyCoachState') || '{}');
+            state.currentTripDistance = totalDistance;
+            localStorage.setItem('safetyCoachState', JSON.stringify(state));
+          } catch (e) {
+            console.error('Error saving state:', e);
+          }
         }
       }
 
