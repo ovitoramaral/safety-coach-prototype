@@ -195,7 +195,7 @@
 
     // Helper function to calculate distance between GPS coordinates
     function calculateDistance(lat1, lon1, lat2, lon2) {
-      const R = 3958.8; // Earth radius in miles
+      const R = 6371; // Earth radius in kilometers
       const dLat = (lat2 - lat1) * Math.PI / 180;
       const dLon = (lon2 - lon1) * Math.PI / 180;
       const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
@@ -224,7 +224,7 @@
     function SafetyCoachDashboard() {
       // User state (persists across trips)
       const [userXP, setUserXP] = useState(2470);
-      const [safeMiles, setSafeMiles] = useState(247);
+      const [safeKm, setSafeKm] = useState(398); // ~247 miles = 398 km
       const [streak, setStreak] = useState(12);
 
       // Trip tracking state
@@ -248,7 +248,7 @@
       const [lastTripData, setLastTripData] = useState({
         route: 'Main St → Home',
         time: '2:34 PM',
-        distance: 2.5,
+        distance: 4.0,
         hardBrakes: 2,
         sharpTurns: 0,
         xpEarned: 50,
@@ -274,9 +274,9 @@
       const todayMission = {
         title: 'Maintain 3-sec following distance',
         description: 'Keep safe spacing in traffic',
-        progress: 4,
-        total: 10,
-        unit: 'miles'
+        progress: 6,
+        total: 16,
+        unit: 'km'
       };
 
       const achievements = [
@@ -416,10 +416,27 @@
 
         const { latitude, longitude, speed: gpsSpeed } = position.coords;
 
-        // Update speed
+        // Update speed (m/s to km/h)
         if (gpsSpeed !== null && gpsSpeed >= 0) {
-          const speedMph = gpsSpeed * 2.237; // m/s to mph
-          setCurrentSpeed(speedMph);
+          const speedKmh = gpsSpeed * 3.6; // m/s to km/h
+          setCurrentSpeed(speedKmh);
+        } else {
+          // If GPS doesn't provide speed, try to calculate it
+          if (lastPosition.current && lastPosition.current.timestamp) {
+            const timeDiff = (Date.now() - lastPosition.current.timestamp) / 1000; // seconds
+            if (timeDiff > 0 && timeDiff < 2) { // Only calculate if reasonable time diff
+              const dist = calculateDistance(
+                lastPosition.current.latitude,
+                lastPosition.current.longitude,
+                latitude,
+                longitude
+              );
+              const speedKmh = (dist / timeDiff) * 3600; // km/s to km/h
+              if (speedKmh < 100) { // Sanity check (walking shouldn't exceed 100 km/h)
+                setCurrentSpeed(speedKmh);
+              }
+            }
+          }
         }
 
         // Calculate distance
@@ -431,12 +448,12 @@
             longitude
           );
           
-          if (dist < 0.1) { // Sanity check
+          if (dist < 0.5) { // Sanity check (0.5 km max per update)
             setTripDistance(prev => prev + dist);
           }
         }
 
-        lastPosition.current = { latitude, longitude };
+        lastPosition.current = { latitude, longitude, timestamp: Date.now() };
       };
 
       // Start tracking
@@ -476,20 +493,27 @@
         window.addEventListener('devicemotion', handleMotion);
         window.addEventListener('deviceorientation', handleOrientation);
 
-        // Start GPS tracking
+        // Start GPS tracking with more frequent updates
         if (navigator.geolocation) {
           gpsWatcher.current = navigator.geolocation.watchPosition(
             handleGPS,
             (error) => console.error('GPS error:', error),
-            { enableHighAccuracy: true, maximumAge: 1000, timeout: 5000 }
+            { 
+              enableHighAccuracy: true, 
+              maximumAge: 500,  // Accept positions up to 0.5s old
+              timeout: 5000 
+            }
           );
         }
 
-        // Update duration
+        // Update duration and force speed refresh
         durationInterval.current = setInterval(() => {
           const duration = (Date.now() - tripStartTime.current) / 1000;
           setTripDuration(duration);
-        }, 1000);
+          
+          // Force component re-render to update speed display
+          setCurrentSpeed(prev => prev); // Trigger state update
+        }, 500); // Update twice per second
       };
 
       // Stop tracking and update stats
@@ -524,12 +548,12 @@
 
         // Update hero stats with animation
         const newXP = userXP + xpEarned;
-        const newMiles = safeMiles + finalDistance;
+        const newKm = safeKm + finalDistance;
         
         // Animate updates
         setTimeout(() => {
           setUserXP(newXP);
-          setSafeMiles(newMiles);
+          setSafeKm(newKm);
         }, 500);
 
         // Show completion toast
@@ -556,8 +580,8 @@
                 </div>
                 <div className="flex items-center gap-4 text-sm">
                   <span>Score: {tripScore.toFixed(0)}/100</span>
-                  <span>Distance: {tripDistance.toFixed(3)} mi</span>
-                  <span>Speed: {currentSpeed.toFixed(1)} mph</span>
+                  <span>Distance: {tripDistance.toFixed(2)} km</span>
+                  <span>Speed: {currentSpeed.toFixed(1)} km/h</span>
                 </div>
               </div>
             </div>
@@ -579,8 +603,8 @@
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-3xl font-bold">{safeMiles.toFixed(0)}</div>
-                    <div className="text-sm opacity-90">safe miles</div>
+                    <div className="text-3xl font-bold">{safeKm.toFixed(0)}</div>
+                    <div className="text-sm opacity-90">safe km</div>
                   </div>
                 </div>
                 
@@ -658,7 +682,7 @@
                   <span className="text-sm text-slate-500">{lastTripData.time}</span>
                 </div>
                 <CardTitle className="text-lg">{lastTripData.route}</CardTitle>
-                <p className="text-sm text-slate-600">{lastTripData.distance.toFixed(2)} miles</p>
+                <p className="text-sm text-slate-600">{lastTripData.distance.toFixed(2)} km</p>
               </CardHeader>
               <CardContent className="space-y-4">
                 {/* Events Summary */}
@@ -760,7 +784,7 @@
                 <div className="font-mono text-xs text-emerald-400 space-y-1">
                   <div>Accel: X={sensorData.accel.x.toFixed(2)} Y={sensorData.accel.y.toFixed(2)} Z={sensorData.accel.z.toFixed(2)}</div>
                   <div>Force: {sensorData.totalForce.toFixed(2)} m/s² | Heading: {sensorData.heading.toFixed(0)}°</div>
-                  <div className="text-blue-400">Score: {tripScore.toFixed(0)}/100 | Distance: {tripDistance.toFixed(3)}mi | Speed: {currentSpeed.toFixed(1)}mph</div>
+                  <div className="text-blue-400">Score: {tripScore.toFixed(0)}/100 | Distance: {tripDistance.toFixed(2)}km | Speed: {currentSpeed.toFixed(1)}km/h</div>
                   <div className="text-violet-400">Events: {sensorData.eventCounts.hardStops} stops, {sensorData.eventCounts.turns} turns, {sensorData.eventCounts.weaves} weaves</div>
                 </div>
               </div>
