@@ -274,7 +274,6 @@
       const todayMission = {
         title: 'Maintain 3-sec following distance',
         description: 'Keep safe spacing in traffic',
-        progress: 6,
         total: 16,
         unit: 'km'
       };
@@ -637,18 +636,33 @@
                 <p className="text-sm text-slate-600">{todayMission.description}</p>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div>
-                  <div className="flex justify-between text-sm mb-2">
-                    <span className="text-slate-600">Progress</span>
-                    <span className="font-semibold">
-                      {todayMission.progress} / {todayMission.total} {todayMission.unit}
-                    </span>
+                {isTracking || tripDistance > 0 ? (
+                  <div>
+                    <div className="flex justify-between text-sm mb-2">
+                      <span className="text-slate-600">Progress</span>
+                      <span className="font-semibold">
+                        {tripDistance.toFixed(2)} / {todayMission.total} {todayMission.unit}
+                      </span>
+                    </div>
+                    <Progress 
+                      value={tripDistance} 
+                      max={todayMission.total}
+                    />
                   </div>
-                  <Progress 
-                    value={todayMission.progress} 
-                    max={todayMission.total}
-                  />
-                </div>
+                ) : (
+                  <div>
+                    <div className="flex justify-between text-sm mb-2">
+                      <span className="text-slate-600">Progress</span>
+                      <span className="font-semibold text-slate-400">
+                        Start tracking to begin
+                      </span>
+                    </div>
+                    <Progress 
+                      value={0} 
+                      max={todayMission.total}
+                    />
+                  </div>
+                )}
                 
                 <Button 
                   variant={isTracking ? 'secondary' : 'primary'}
@@ -768,28 +782,31 @@
               <p>Keep up the amazing work! 💪</p>
               <p className="mt-1">3 more trips to unlock Silver tier</p>
             </div>
-          </div>
 
-          {/* Debug Log - Always visible at bottom when tracking */}
-          {isTracking && (
-            <div className="fixed bottom-0 left-0 right-0 bg-slate-900 text-white p-3 shadow-2xl z-30">
-              <div className="max-w-md mx-auto">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-xs font-semibold text-emerald-400">SENSOR LOG</span>
-                  <div className="flex items-center gap-2 text-xs">
-                    <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
-                    <span className="text-emerald-400">Live</span>
+            {/* Sensor View CTA */}
+            <Card className="shadow-md bg-gradient-to-br from-blue-50 to-violet-50 border-2 border-blue-200">
+              <CardContent className="pt-6">
+                <div className="text-center space-y-3">
+                  <Icon name="activity" size={32} className="mx-auto text-blue-600" />
+                  <div className="text-blue-900 font-semibold text-lg">
+                    View Detailed Sensor Data
                   </div>
+                  <p className="text-sm text-blue-800">
+                    See real-time GPS, speed, and motion sensors with debug information
+                  </p>
+                  <a 
+                    href="/motion-test-with-gps.html?autostart=true&from=dashboard"
+                    className="inline-block w-full bg-gradient-to-r from-blue-600 to-violet-600 text-white font-semibold py-4 px-6 rounded-lg hover:from-blue-700 hover:to-violet-700 transition shadow-lg"
+                  >
+                    🔬 Open Sensor View
+                  </a>
                 </div>
-                <div className="font-mono text-xs text-emerald-400 space-y-1">
-                  <div>Accel: X={sensorData.accel.x.toFixed(2)} Y={sensorData.accel.y.toFixed(2)} Z={sensorData.accel.z.toFixed(2)}</div>
-                  <div>Force: {sensorData.totalForce.toFixed(2)} m/s² | Heading: {sensorData.heading.toFixed(0)}°</div>
-                  <div className="text-blue-400">Score: {tripScore.toFixed(0)}/100 | Distance: {tripDistance.toFixed(2)}km | Speed: {currentSpeed.toFixed(1)}km/h</div>
-                  <div className="text-violet-400">Events: {sensorData.eventCounts.hardStops} stops, {sensorData.eventCounts.turns} turns, {sensorData.eventCounts.weaves} weaves</div>
-                </div>
-              </div>
-            </div>
-          )}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      );
+    }
         </div>
       );
     }

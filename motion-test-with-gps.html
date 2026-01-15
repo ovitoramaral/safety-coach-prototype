@@ -139,6 +139,14 @@
 </head>
 <body>
   <div class="container">
+    <!-- Back Button (shows when coming from dashboard) -->
+    <div id="backButton" style="display: none; margin-bottom: 20px;">
+      <a href="/safety-coach-integrated.html" style="display: inline-flex; align-items: center; gap: 8px; color: #667eea; text-decoration: none; font-weight: 600; font-size: 14px;">
+        <span style="font-size: 20px;">←</span>
+        Back to Dashboard
+      </a>
+    </div>
+
     <h1>🚗 Movement + GPS</h1>
     <p style="color: #666; font-size: 13px; margin-bottom: 20px;">Real-time speed and distance tracking</p>
     
@@ -457,6 +465,23 @@
     
     if (stopBtn) {
       stopBtn.addEventListener('click', stopTracking);
+    }
+
+    // Check URL parameters for auto-start and back button
+    const urlParams = new URLSearchParams(window.location.search);
+    const autostart = urlParams.get('autostart') === 'true';
+    const fromDashboard = urlParams.get('from') === 'dashboard';
+
+    // Show back button if coming from dashboard
+    if (fromDashboard) {
+      document.getElementById('backButton').style.display = 'block';
+    }
+
+    // Auto-start tracking if requested
+    if (autostart) {
+      setTimeout(() => {
+        startTracking();
+      }, 500); // Small delay to let UI load
     }
   </script>
 </body>
