@@ -155,14 +155,14 @@
       <div class="big-display">
         <div class="label">Current Speed</div>
         <div id="speed" class="big-value">0.0</div>
-        <div style="font-size: 1.2rem; opacity: 0.9;">mph</div>
+        <div style="font-size: 1.2rem; opacity: 0.9;">km/h</div>
       </div>
       
       <!-- Main Metrics Grid -->
       <div class="grid">
         <div class="metric-box">
           <div class="metric-value" id="distance">0.00</div>
-          <div class="metric-label">Distance (miles)</div>
+          <div class="metric-label">Distance (km)</div>
         </div>
         
         <div class="metric-box">
@@ -247,7 +247,7 @@
 
     function calculateDistance(lat1, lon1, lat2, lon2) {
       // Haversine formula for distance between two GPS points
-      const R = 3958.8; // Earth's radius in miles
+      const R = 6371; // Earth's radius in kilometers
       const dLat = (lat2 - lat1) * Math.PI / 180;
       const dLon = (lon2 - lon1) * Math.PI / 180;
       const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
@@ -335,11 +335,11 @@
 
       // Calculate speed (GPS provides speed in m/s)
       if (gpsSpeed !== null && gpsSpeed >= 0) {
-        const speedMph = gpsSpeed * 2.237; // m/s to mph
-        speedEl.textContent = speedMph.toFixed(1);
+        const speedKmh = gpsSpeed * 3.6; // m/s to km/h
+        speedEl.textContent = speedKmh.toFixed(1);
         
         // Add pulse effect when moving fast
-        if (speedMph > 1) {
+        if (speedKmh > 1) {
           speedEl.className = 'big-value pulse';
         } else {
           speedEl.className = 'big-value';
@@ -355,8 +355,8 @@
           longitude
         );
         
-        // Only add if distance is reasonable (< 0.1 miles per update)
-        if (dist < 0.1) {
+        // Only add if distance is reasonable (< 0.5 km per update)
+        if (dist < 0.5) {
           totalDistance += dist;
           distanceEl.textContent = totalDistance.toFixed(3);
         }
@@ -442,7 +442,7 @@
       const avgSpeed = (totalDistance / (elapsed / 3600)).toFixed(1);
       
       setTimeout(() => {
-        alert(`Trip Summary:\n\nDistance: ${totalDistance.toFixed(3)} miles\nDuration: ${formatDuration(elapsed)}\nAvg Speed: ${avgSpeed} mph\n\nNice work! 🎉`);
+        alert(`Trip Summary:\n\nDistance: ${totalDistance.toFixed(3)} km\nDuration: ${formatDuration(elapsed)}\nAvg Speed: ${avgSpeed} km/h\n\nNice work! 🎉`);
         
         // Reset for new trip
         startBtn.style.display = 'block';
