@@ -665,24 +665,50 @@
               </Card>
             )}
 
+            {/* Debug Log */}
+            {isTracking && (
+              <Card className="shadow-md bg-slate-50 border-slate-300">
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Icon name="terminal" size={20} />
+                    Sensor Log
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="bg-slate-900 rounded-lg p-3 max-h-32 overflow-y-auto">
+                    <div className="font-mono text-xs text-emerald-400 space-y-1">
+                      <div>Accel: X={sensorData.accel.x.toFixed(2)} Y={sensorData.accel.y.toFixed(2)} Z={sensorData.accel.z.toFixed(2)}</div>
+                      <div>Force: {sensorData.totalForce.toFixed(2)} m/s²</div>
+                      <div>Heading: {sensorData.heading.toFixed(0)}°</div>
+                      <div className="text-violet-400">Events: {sensorData.eventCounts.hardStops} stops, {sensorData.eventCounts.turns} turns, {sensorData.eventCounts.weaves} weaves</div>
+                      <div className="text-blue-400">Score: {tripScore.toFixed(0)}/100 | Distance: {tripDistance.toFixed(3)}mi | Time: {tripDuration.toFixed(0)}s</div>
+                    </div>
+                  </div>
+                  <div className="mt-3 text-xs text-slate-600 text-center">
+                    Real-time sensor readings • Updates ~60Hz
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Troubleshooting Footer */}
-            <Card className="shadow-md bg-amber-50 border-amber-200">
+            <Card className="shadow-md bg-blue-50 border-blue-200">
               <CardContent className="pt-6">
                 <div className="text-center space-y-3">
-                  <div className="text-amber-900 font-semibold">
-                    🔧 Sensors not responding correctly?
+                  <div className="text-blue-900 font-semibold">
+                    📊 Want more detailed tracking?
                   </div>
-                  <p className="text-sm text-amber-800">
-                    If you're seeing movement when standing still, or no detection when walking, try our diagnostic tool:
+                  <p className="text-sm text-blue-800">
+                    Try our GPS-powered test with real-time speed and distance:
                   </p>
                   <a 
-                    href="/motion-test-fixed.html"
-                    className="inline-block w-full bg-amber-600 text-white font-semibold py-3 px-6 rounded-lg hover:bg-amber-700 transition"
+                    href="/motion-test-with-gps.html"
+                    className="inline-block w-full bg-blue-600 text-white font-semibold py-3 px-6 rounded-lg hover:bg-blue-700 transition"
                   >
-                    🎯 Open Motion Diagnostic Tool
+                    🚗 Open GPS + Motion Test
                   </a>
-                  <p className="text-xs text-amber-700">
-                    Tests actual movement detection (ignores gravity)
+                  <p className="text-xs text-blue-700">
+                    Real-time speed in mph • Distance tracking • Fixed movement detection
                   </p>
                 </div>
               </CardContent>
