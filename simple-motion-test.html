@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simple Motion Test</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      color: white;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .card {
+      background: rgba(255, 255, 255, 0.95);
+      color: #333;
+      border-radius: 20px;
+      padding: 30px;
+      max-width: 400px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      text-align: center;
+    }
+    
+    .big-button {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      padding: 20px 40px;
+      font-size: 20px;
+      font-weight: bold;
+      border-radius: 50px;
+      cursor: pointer;
+      width: 100%;
+      margin: 20px 0;
+      box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+      transition: transform 0.2s;
+    }
+    
+    .big-button:active {
+      transform: scale(0.95);
+    }
+    
+    .big-button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    
+    .sensor-value {
+      font-size: 48px;
+      font-weight: bold;
+      margin: 20px 0;
+      font-family: 'Courier New', monospace;
+    }
+    
+    .label {
+      font-size: 14px;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    
+    .status {
+      padding: 10px 20px;
+      border-radius: 10px;
+      margin: 10px 0;
+      font-weight: bold;
+    }
+    
+    .status-waiting {
+      background: #fbbf24;
+      color: #78350f;
+    }
+    
+    .status-active {
+      background: #10b981;
+      color: white;
+    }
+    
+    .status-error {
+      background: #ef4444;
+      color: white;
+    }
+    
+    .sensor-box {
+      background: #f3f4f6;
+      padding: 15px;
+      border-radius: 10px;
+      margin: 10px 0;
+    }
+    
+    .pulse {
+      animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1 style="margin-top: 0;">🚗 Motion Test</h1>
+    <p style="color: #666; font-size: 14px;">Simple test for iPhone Safari</p>
+    
+    <div id="status" class="status status-waiting">
+      Tap button to start
+    </div>
+    
+    <button id="startBtn" class="big-button">
+      🚀 Request Permission & Start
+    </button>
+    
+    <div id="sensorData" style="display: none;">
+      <div class="sensor-box">
+        <div class="label">Total Movement</div>
+        <div id="totalForce" class="sensor-value">0</div>
+      </div>
+      
+      <div class="sensor-box">
+        <div class="label">Updates Received</div>
+        <div id="updateCount" class="sensor-value" style="font-size: 36px;">0</div>
+      </div>
+      
+      <div style="margin-top: 20px; padding: 15px; background: #dbeafe; border-radius: 10px; font-size: 14px; color: #1e40af;">
+        <strong>✨ Try this:</strong><br>
+        Walk around, turn, or shake your phone!
+      </div>
+    </div>
+    
+    <div id="instructions" style="margin-top: 20px; font-size: 12px; color: #666; text-align: left;">
+      <strong>📱 iPhone Instructions:</strong>
+      <ol style="padding-left: 20px; margin: 10px 0;">
+        <li>Tap the button above</li>
+        <li>Safari will show a popup</li>
+        <li>Tap "Allow" in the popup</li>
+        <li>Move your phone to see values change</li>
+      </ol>
+      
+      <strong>⚠️ If no popup appears:</strong><br>
+      <small>Go to iPhone Settings → Safari → Motion & Orientation Access → set to "Ask"</small>
+    </div>
+  </div>
+
+  <script>
+    let updateCount = 0;
+    let isActive = false;
+
+    const statusEl = document.getElementById('status');
+    const startBtn = document.getElementById('startBtn');
+    const sensorDataEl = document.getElementById('sensorData');
+    const totalForceEl = document.getElementById('totalForce');
+    const updateCountEl = document.getElementById('updateCount');
+
+    function setStatus(message, type) {
+      statusEl.textContent = message;
+      statusEl.className = 'status status-' + type;
+    }
+
+    async function requestPermissionAndStart() {
+      setStatus('Requesting permission...', 'waiting');
+      startBtn.disabled = true;
+
+      // Check if permission is needed (iOS 13+)
+      if (typeof DeviceMotionEvent !== 'undefined' && 
+          typeof DeviceMotionEvent.requestPermission === 'function') {
+        
+        try {
+          console.log('Requesting DeviceMotion permission...');
+          const permission = await DeviceMotionEvent.requestPermission();
+          console.log('Permission result:', permission);
+          
+          if (permission === 'granted') {
+            startSensors();
+          } else {
+            setStatus('❌ Permission denied', 'error');
+            startBtn.disabled = false;
+            startBtn.textContent = '🔄 Try Again';
+            alert('Permission denied. Please go to:\nSettings → Safari → Motion & Orientation Access\n\nSet it to "Ask" and reload this page.');
+          }
+        } catch (error) {
+          console.error('Permission error:', error);
+          setStatus('❌ Error: ' + error.message, 'error');
+          startBtn.disabled = false;
+          startBtn.textContent = '🔄 Try Again';
+        }
+      } else {
+        // No permission needed (Android or older iOS)
+        console.log('No permission needed, starting directly');
+        startSensors();
+      }
+    }
+
+    function startSensors() {
+      console.log('Starting sensors...');
+      setStatus('🎧 Listening for motion...', 'active');
+      sensorDataEl.style.display = 'block';
+      startBtn.style.display = 'none';
+      isActive = true;
+
+      window.addEventListener('devicemotion', handleMotion);
+      
+      // Check if data is coming in
+      setTimeout(() => {
+        if (updateCount === 0) {
+          setStatus('⚠️ No sensor data received', 'error');
+          console.warn('No sensor data after 3 seconds');
+        }
+      }, 3000);
+    }
+
+    function handleMotion(event) {
+      if (!isActive) return;
+
+      updateCount++;
+      updateCountEl.textContent = updateCount;
+
+      if (updateCount === 1) {
+        setStatus('✅ Sensors working!', 'active');
+        console.log('First sensor data received!');
+      }
+
+      const accel = event.accelerationIncludingGravity;
+      if (accel) {
+        const x = accel.x || 0;
+        const y = accel.y || 0;
+        const z = accel.z || 0;
+        const total = Math.sqrt(x*x + y*y + z*z);
+        
+        totalForceEl.textContent = total.toFixed(1);
+        
+        // Add pulse effect when moving
+        if (total > 12) {
+          totalForceEl.className = 'sensor-value pulse';
+        } else {
+          totalForceEl.className = 'sensor-value';
+        }
+        
+        console.log('Motion:', { x: x.toFixed(2), y: y.toFixed(2), z: z.toFixed(2), total: total.toFixed(2) });
+      }
+    }
+
+    startBtn.addEventListener('click', requestPermissionAndStart);
+
+    // Log device info
+    console.log('User Agent:', navigator.userAgent);
+    console.log('DeviceMotionEvent available:', typeof DeviceMotionEvent !== 'undefined');
+    console.log('Needs permission:', typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function');
+  </script>
+</body>
+</html>

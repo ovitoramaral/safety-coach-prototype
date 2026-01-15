@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Safety Coach - Demo Gallery</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', sans-serif;
+    }
+    .demo-card {
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .demo-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+    }
+  </style>
+</head>
+<body class="bg-gradient-to-br from-slate-50 to-slate-100 min-h-screen py-12 px-4">
+  <div class="max-w-4xl mx-auto">
+    <!-- Header -->
+    <div class="text-center mb-12">
+      <h1 class="text-5xl font-bold text-slate-900 mb-4">🚗 Safety Coach</h1>
+      <p class="text-xl text-slate-600 mb-2">Telematics Demo Gallery</p>
+      <p class="text-sm text-slate-500">Choose a demo to explore</p>
+    </div>
+
+    <!-- Demos Grid -->
+    <div class="grid md:grid-cols-2 gap-6 mb-12">
+      
+      <!-- Motion Test Clean -->
+      <a href="/motion-test-clean.html" class="demo-card block bg-white rounded-2xl p-8 shadow-lg border-2 border-purple-200">
+        <div class="text-4xl mb-4">🎯</div>
+        <h2 class="text-2xl font-bold text-slate-900 mb-3">Motion Test (Recommended)</h2>
+        <p class="text-slate-600 mb-4">Clean sensor test with real-time debugging. Best for verifying your device works!</p>
+        <div class="flex flex-wrap gap-2 mb-3">
+          <span class="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded-full font-semibold">📱 Mobile Only</span>
+          <span class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full font-semibold">✅ HTTPS</span>
+        </div>
+        <div class="text-purple-600 font-semibold">Start Here →</div>
+      </a>
+
+      <!-- Enhanced Walking Mode -->
+      <a href="/walking-mode-enhanced.html" class="demo-card block bg-white rounded-2xl p-8 shadow-lg border-2 border-emerald-200">
+        <div class="text-4xl mb-4">⭐</div>
+        <h2 class="text-2xl font-bold text-slate-900 mb-3">Walking Mode (Enhanced)</h2>
+        <p class="text-slate-600 mb-4">Full demo with real-time scoring, debug panel, and trip summary. Complete experience!</p>
+        <div class="flex flex-wrap gap-2 mb-3">
+          <span class="text-xs bg-emerald-100 text-emerald-800 px-2 py-1 rounded-full font-semibold">📊 Live Scoring</span>
+          <span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full font-semibold">🔧 Debug Panel</span>
+        </div>
+        <div class="text-emerald-600 font-semibold">Try Full Demo →</div>
+      </a>
+
+      <!-- Sensor Diagnostic -->
+      <a href="/sensor-diagnostic.html" class="demo-card block bg-white rounded-2xl p-8 shadow-lg border-2 border-blue-200">
+        <div class="text-4xl mb-4">🔧</div>
+        <h2 class="text-2xl font-bold text-slate-900 mb-3">Sensor Diagnostic</h2>
+        <p class="text-slate-600 mb-4">Detailed sensor analysis and troubleshooting. See exactly what your device supports.</p>
+        <div class="flex flex-wrap gap-2 mb-3">
+          <span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full font-semibold">🔍 Diagnostic</span>
+          <span class="text-xs bg-slate-100 text-slate-800 px-2 py-1 rounded-full font-semibold">📱 Mobile</span>
+        </div>
+        <div class="text-blue-600 font-semibold">Run Diagnostics →</div>
+      </a>
+
+      <!-- Static Demo -->
+      <a href="/standalone-demo.html" class="demo-card block bg-white rounded-2xl p-8 shadow-lg border-2 border-slate-200">
+        <div class="text-4xl mb-4">💻</div>
+        <h2 class="text-2xl font-bold text-slate-900 mb-3">Static Demo</h2>
+        <p class="text-slate-600 mb-4">UI/UX preview with mock data. Works on any device including desktop.</p>
+        <div class="flex flex-wrap gap-2 mb-3">
+          <span class="text-xs bg-slate-100 text-slate-800 px-2 py-1 rounded-full font-semibold">💻 Desktop OK</span>
+          <span class="text-xs bg-amber-100 text-amber-800 px-2 py-1 rounded-full font-semibold">🎨 Design Preview</span>
+        </div>
+        <div class="text-slate-600 font-semibold">View UI →</div>
+      </a>
+
+    </div>
+
+    <!-- Info Cards -->
+    <div class="space-y-4">
+      <div class="bg-blue-50 border border-blue-200 rounded-xl p-6">
+        <h3 class="font-bold text-blue-900 mb-2 flex items-center gap-2">
+          <span>💡</span>
+          <span>First Time Here?</span>
+        </h3>
+        <p class="text-blue-800 text-sm">
+          Start with <strong>Motion Test (Clean)</strong> to verify your device supports motion sensors. Then try the <strong>Enhanced Walking Mode</strong> for the full experience!
+        </p>
+      </div>
+
+      <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-6">
+        <h3 class="font-bold text-emerald-900 mb-2 flex items-center gap-2">
+          <span>📱</span>
+          <span>Mobile Required</span>
+        </h3>
+        <p class="text-emerald-800 text-sm">
+          Most demos require a mobile device with motion sensors (iPhone or Android). The Static Demo works on desktop for UI preview.
+        </p>
+      </div>
+
+      <div class="bg-violet-50 border border-violet-200 rounded-xl p-6">
+        <h3 class="font-bold text-violet-900 mb-2 flex items-center gap-2">
+          <span>🔐</span>
+          <span>Permissions</span>
+        </h3>
+        <p class="text-violet-800 text-sm">
+          When prompted, tap <strong>"Allow"</strong> to grant motion & orientation access. All processing happens on your device - no data is uploaded.
+        </p>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="mt-12 text-center text-slate-500 text-sm">
+      <p>Built with Vibecoding methodology</p>
+      <p class="mt-2">
+        <a href="https://github.com/vitoramaral/safety-coach-prototype" class="text-purple-600 hover:text-purple-800 font-semibold">View on GitHub</a>
+      </p>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,8 @@
+{
+  "name": "safety-coach-prototype",
+  "version": "1.0.0",
+  "description": "Static HTML demos - no build required",
+  "private": true,
+  "scripts": {},
+  "dependencies": {}
+}

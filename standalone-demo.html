@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Safety Coach Dashboard - Demo</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+        'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+        sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState } = React;
+
+    const Card = ({ className = '', children, ...props }) => (
+      <div
+        className={`rounded-lg border border-slate-200 bg-white shadow-sm ${className}`}
+        {...props}
+      >
+        {children}
+      </div>
+    );
+
+    const CardHeader = ({ className = '', children, ...props }) => (
+      <div className={`flex flex-col space-y-1.5 p-6 ${className}`} {...props}>
+        {children}
+      </div>
+    );
+
+    const CardTitle = ({ className = '', children, ...props }) => (
+      <h3
+        className={`text-2xl font-semibold leading-none tracking-tight ${className}`}
+        {...props}
+      >
+        {children}
+      </h3>
+    );
+
+    const CardContent = ({ className = '', children, ...props }) => (
+      <div className={`p-6 pt-0 ${className}`} {...props}>
+        {children}
+      </div>
+    );
+
+    const Progress = ({ value = 0, max = 100, className = '', indicatorClassName = '' }) => {
+      const percentage = Math.min(Math.max((value / max) * 100, 0), 100);
+      
+      return (
+        <div className={`relative h-4 w-full overflow-hidden rounded-full bg-slate-200 ${className}`}>
+          <div
+            className={`h-full bg-emerald-500 transition-all duration-500 ease-out ${indicatorClassName}`}
+            style={{ width: `${percentage}%` }}
+          />
+        </div>
+      );
+    };
+
+    const badgeVariants = {
+      default: 'bg-slate-900 text-white',
+      success: 'bg-emerald-500 text-white',
+      warning: 'bg-amber-400 text-slate-900',
+      celebrate: 'bg-violet-500 text-white',
+    };
+
+    const Badge = ({ variant = 'default', className = '', children, ...props }) => (
+      <span
+        className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-semibold ${badgeVariants[variant]} ${className}`}
+        {...props}
+      >
+        {children}
+      </span>
+    );
+
+    const buttonVariants = {
+      default: 'bg-slate-900 text-white hover:bg-slate-800',
+      primary: 'bg-emerald-500 text-white hover:bg-emerald-600',
+      secondary: 'bg-slate-200 text-slate-900 hover:bg-slate-300',
+      celebrate: 'bg-violet-500 text-white hover:bg-violet-600',
+    };
+
+    const Button = ({ variant = 'default', size = 'default', className = '', children, disabled = false, ...props }) => {
+      const sizeClasses = size === 'lg' ? 'px-8 py-4 text-lg' : 'px-6 py-3 text-base';
+      
+      return (
+        <button
+          className={`inline-flex items-center justify-center rounded-lg font-semibold transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${buttonVariants[variant]} ${sizeClasses} ${className}`}
+          disabled={disabled}
+          {...props}
+        >
+          {children}
+        </button>
+      );
+    };
+
+    const Icon = ({ name, className = '', size = 24, ...props }) => {
+      return <i data-lucide={name} className={className} style={{ width: size, height: size }} {...props}></i>;
+    };
+
+    const demoData = {
+      user: {
+        level: 'Gold',
+        streak: 12,
+        xp: 2470,
+        nextLevel: 3000,
+        safeMiles: 247
+      },
+      todayMission: {
+        title: 'Maintain 3-sec following distance',
+        description: 'Keep safe spacing in traffic',
+        progress: 4,
+        total: 10,
+        unit: 'miles'
+      },
+      lastTrip: {
+        route: 'Main St → Home',
+        time: '2:34 PM',
+        distance: 8.2,
+        hardBrakes: 2,
+        xpEarned: 50,
+        tip: 'High traffic zone ahead. Try Route 9 instead for smoother flow!'
+      },
+      recentAchievements: [
+        { id: 1, name: 'Week Warrior', icon: '🏅', unlocked: true },
+        { id: 2, name: 'Smooth Operator', icon: '🏅', unlocked: true },
+        { id: 3, name: 'Distance Master', icon: '🏅', unlocked: true },
+        { id: 4, name: 'Night Owl', icon: '🏆', unlocked: false },
+        { id: 5, name: 'Eco Driver', icon: '🏆', unlocked: false },
+      ]
+    };
+
+    function SafetyCoachDashboard() {
+      const [isTracking, setIsTracking] = useState(false);
+      const xpPercentage = (demoData.user.xp / demoData.user.nextLevel) * 100;
+
+      React.useEffect(() => {
+        lucide.createIcons();
+      }, [isTracking]);
+
+      return (
+        <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 p-4">
+          <div className="max-w-md mx-auto space-y-4">
+            
+            {/* Hero Stats Card */}
+            <Card className="bg-gradient-to-br from-emerald-500 to-emerald-600 text-white border-0 shadow-lg">
+              <CardContent className="pt-6">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <Icon name="trophy" size={32} />
+                    <div>
+                      <Badge variant="celebrate" className="mb-1">
+                        {demoData.user.level} Streak
+                      </Badge>
+                      <div className="text-sm opacity-90">Day {demoData.user.streak}</div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-3xl font-bold">{demoData.user.safeMiles}</div>
+                    <div className="text-sm opacity-90">safe miles</div>
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="opacity-90">Level Progress</span>
+                    <span className="font-semibold">{demoData.user.xp} / {demoData.user.nextLevel} XP</span>
+                  </div>
+                  <Progress 
+                    value={demoData.user.xp} 
+                    max={demoData.user.nextLevel}
+                    className="bg-emerald-400/30"
+                    indicatorClassName="bg-white"
+                  />
+                  <div className="text-sm font-medium text-center pt-2">
+                    "You're crushing it! 🎉"
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Active Mission Card */}
+            <Card className="shadow-md">
+              <CardHeader>
+                <div className="flex items-center gap-2 text-slate-600 mb-2">
+                  <Icon name="target" size={20} />
+                  <span className="text-sm font-semibold uppercase tracking-wide">Today's Mission</span>
+                </div>
+                <CardTitle className="text-xl">{demoData.todayMission.title}</CardTitle>
+                <p className="text-sm text-slate-600">{demoData.todayMission.description}</p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <div className="flex justify-between text-sm mb-2">
+                    <span className="text-slate-600">Progress</span>
+                    <span className="font-semibold">
+                      {demoData.todayMission.progress} / {demoData.todayMission.total} {demoData.todayMission.unit}
+                    </span>
+                  </div>
+                  <Progress 
+                    value={demoData.todayMission.progress} 
+                    max={demoData.todayMission.total}
+                  />
+                </div>
+                
+                <Button 
+                  variant={isTracking ? 'secondary' : 'primary'}
+                  size="lg"
+                  className="w-full"
+                  onClick={() => setIsTracking(!isTracking)}
+                >
+                  {isTracking ? (
+                    <>
+                      <Icon name="pause" size={20} className="mr-2" />
+                      Tracking... (Tap to Stop)
+                    </>
+                  ) : (
+                    <>
+                      <Icon name="play" size={20} className="mr-2" />
+                      Start Tracking
+                    </>
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Latest Trip Insight Card */}
+            <Card className="shadow-md">
+              <CardHeader>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2 text-slate-600">
+                    <Icon name="car" size={20} />
+                    <span className="text-sm font-semibold">Last Trip</span>
+                  </div>
+                  <span className="text-sm text-slate-500">{demoData.lastTrip.time}</span>
+                </div>
+                <CardTitle className="text-lg">{demoData.lastTrip.route}</CardTitle>
+                <p className="text-sm text-slate-600">{demoData.lastTrip.distance} miles</p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Gentle Feedback */}
+                {demoData.lastTrip.hardBrakes > 0 && (
+                  <div className="flex items-start gap-3 p-3 rounded-lg bg-amber-50 border border-amber-200">
+                    <Icon name="trending-up" size={20} className="text-amber-600 flex-shrink-0 mt-0.5" />
+                    <div className="text-sm">
+                      <span className="font-semibold text-amber-900">
+                        {demoData.lastTrip.hardBrakes} hard brakes detected
+                      </span>
+                      <p className="text-amber-800 mt-1">
+                        But hey, you're doing great overall!
+                      </p>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Coaching Tip */}
+                <div className="flex items-start gap-3 p-3 rounded-lg bg-violet-50 border border-violet-200">
+                  <Icon name="lightbulb" size={20} className="text-violet-600 flex-shrink-0 mt-0.5" />
+                  <div className="text-sm">
+                    <span className="font-semibold text-violet-900">Pro Tip</span>
+                    <p className="text-violet-800 mt-1">{demoData.lastTrip.tip}</p>
+                  </div>
+                </div>
+                
+                {/* Positive Reinforcement */}
+                <div className="flex items-center justify-center gap-2 p-4 rounded-lg bg-gradient-to-r from-emerald-500 to-emerald-600 text-white">
+                  <Icon name="zap" size={24} />
+                  <span className="text-lg font-bold">+{demoData.lastTrip.xpEarned} XP earned!</span>
+                  <span className="text-2xl">🎉</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Quick Achievement Peek */}
+            <Card className="shadow-md">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Icon name="award" size={20} className="text-slate-600" />
+                    <CardTitle className="text-lg">Recent Unlocks</CardTitle>
+                  </div>
+                  <button className="text-sm text-emerald-600 font-semibold hover:text-emerald-700">
+                    View All →
+                  </button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="flex gap-3 overflow-x-auto pb-2">
+                  {demoData.recentAchievements.map((achievement) => (
+                    <div
+                      key={achievement.id}
+                      className={`flex-shrink-0 flex flex-col items-center justify-center w-20 h-20 rounded-lg border-2 transition-all ${
+                        achievement.unlocked
+                          ? 'bg-gradient-to-br from-violet-100 to-violet-50 border-violet-300 shadow-sm'
+                          : 'bg-slate-50 border-slate-200 opacity-50'
+                      }`}
+                    >
+                      <span className="text-3xl mb-1">{achievement.icon}</span>
+                      {achievement.unlocked && (
+                        <span className="text-xs font-semibold text-violet-700">New!</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Footer Encouragement */}
+            <div className="text-center py-6 text-sm text-slate-500">
+              <p>Keep up the amazing work! 💪</p>
+              <p className="mt-1">3 more trips to unlock Silver tier</p>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<SafetyCoachDashboard />);
+  </script>
+</body>
+</html>

@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Motion Test - Clean</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      color: white;
+    }
+    
+    .container {
+      background: white;
+      border-radius: 20px;
+      padding: 40px;
+      max-width: 500px;
+      width: 100%;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      color: #333;
+      text-align: center;
+    }
+    
+    h1 {
+      font-size: 2.5rem;
+      margin-bottom: 10px;
+    }
+    
+    .status {
+      padding: 15px;
+      border-radius: 10px;
+      margin: 20px 0;
+      font-weight: bold;
+    }
+    
+    .status-waiting { background: #fef3c7; color: #92400e; }
+    .status-active { background: #d1fae5; color: #065f46; }
+    .status-error { background: #fee2e2; color: #991b1b; }
+    
+    .big-button {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      padding: 20px 40px;
+      font-size: 1.3rem;
+      font-weight: bold;
+      border-radius: 50px;
+      cursor: pointer;
+      width: 100%;
+      margin: 20px 0;
+      box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+      transition: transform 0.2s;
+    }
+    
+    .big-button:active {
+      transform: scale(0.95);
+    }
+    
+    .sensor-display {
+      background: #f9fafb;
+      border-radius: 15px;
+      padding: 25px;
+      margin: 20px 0;
+    }
+    
+    .sensor-value {
+      font-size: 3rem;
+      font-weight: bold;
+      font-family: 'Courier New', monospace;
+      color: #667eea;
+      margin: 10px 0;
+    }
+    
+    .label {
+      font-size: 0.9rem;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 5px;
+    }
+    
+    .debug-log {
+      background: #1f2937;
+      color: #10b981;
+      font-family: 'Courier New', monospace;
+      font-size: 0.75rem;
+      padding: 15px;
+      border-radius: 10px;
+      text-align: left;
+      max-height: 200px;
+      overflow-y: auto;
+      margin-top: 20px;
+    }
+    
+    .debug-log div {
+      margin: 3px 0;
+    }
+    
+    .pulse {
+      animation: pulse 1s infinite;
+    }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🚗 Motion Test</h1>
+    <p style="color: #6b7280; margin-bottom: 20px;">Clean version - System permissions only</p>
+    
+    <div id="status" class="status status-waiting">
+      Ready to start
+    </div>
+    
+    <button id="startBtn" class="big-button">
+      🚀 Start Motion Tracking
+    </button>
+    
+    <div id="sensorDisplay" style="display: none;">
+      <div class="sensor-display">
+        <div class="label">Total Movement Force</div>
+        <div id="totalForce" class="sensor-value">0.0</div>
+      </div>
+      
+      <div class="sensor-display">
+        <div class="label">Sensor Updates</div>
+        <div id="updateCount" class="sensor-value" style="font-size: 2rem;">0</div>
+      </div>
+      
+      <div style="background: #dbeafe; padding: 15px; border-radius: 10px; margin-top: 20px;">
+        <strong style="color: #1e40af;">💡 Move your phone!</strong>
+        <p style="color: #1e40af; font-size: 0.9rem; margin-top: 5px;">
+          Walk, turn, or shake to see values change
+        </p>
+      </div>
+    </div>
+    
+    <div class="debug-log" id="debugLog"></div>
+  </div>
+
+  <script>
+    let updateCount = 0;
+    let isActive = false;
+
+    const statusEl = document.getElementById('status');
+    const startBtn = document.getElementById('startBtn');
+    const sensorDisplayEl = document.getElementById('sensorDisplay');
+    const totalForceEl = document.getElementById('totalForce');
+    const updateCountEl = document.getElementById('updateCount');
+    const debugLog = document.getElementById('debugLog');
+
+    function log(message, important = false) {
+      console.log(message);
+      const time = new Date().toLocaleTimeString();
+      const color = important ? '#fbbf24' : '#10b981';
+      debugLog.innerHTML = `<div style="color: ${color}">[${time}] ${message}</div>` + debugLog.innerHTML;
+    }
+
+    function setStatus(message, type) {
+      statusEl.textContent = message;
+      statusEl.className = 'status status-' + type;
+    }
+
+    // Log environment info
+    log('Browser: ' + navigator.userAgent.split(' ').slice(-2).join(' '));
+    log('DeviceMotionEvent available: ' + (typeof DeviceMotionEvent !== 'undefined'));
+    log('Needs permission request: ' + (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function'));
+
+    async function startTracking() {
+      startBtn.disabled = true;
+      setStatus('Requesting permission...', 'waiting');
+      log('=== Starting permission request ===', true);
+
+      try {
+        // Check if we need to request permission (iOS 13+)
+        if (typeof DeviceMotionEvent !== 'undefined' && 
+            typeof DeviceMotionEvent.requestPermission === 'function') {
+          
+          log('iOS detected - requesting DeviceMotion permission...', true);
+          
+          // This should trigger the SYSTEM popup
+          const permission = await DeviceMotionEvent.requestPermission();
+          
+          log('Permission result: ' + permission, true);
+          
+          if (permission === 'granted') {
+            log('✅ Permission granted!', true);
+            startSensors();
+          } else {
+            log('❌ Permission denied by user', true);
+            setStatus('❌ Permission denied', 'error');
+            startBtn.disabled = false;
+            startBtn.textContent = '🔄 Try Again';
+          }
+        } else {
+          // Android or older iOS - no permission needed
+          log('No permission needed - starting sensors directly', true);
+          startSensors();
+        }
+      } catch (error) {
+        log('❌ ERROR: ' + error.message, true);
+        setStatus('❌ Error: ' + error.message, 'error');
+        startBtn.disabled = false;
+        startBtn.textContent = '🔄 Try Again';
+      }
+    }
+
+    function startSensors() {
+      log('Starting sensor listeners...', true);
+      setStatus('🎧 Listening for motion...', 'active');
+      sensorDisplayEl.style.display = 'block';
+      startBtn.style.display = 'none';
+      isActive = true;
+
+      // Add motion event listener
+      window.addEventListener('devicemotion', handleMotion);
+      log('Motion event listener added');
+
+      // Check if data arrives
+      setTimeout(() => {
+        if (updateCount === 0) {
+          log('⚠️ No sensor data after 3 seconds', true);
+          setStatus('⚠️ No sensor data received', 'error');
+        }
+      }, 3000);
+    }
+
+    function handleMotion(event) {
+      if (!isActive) return;
+
+      updateCount++;
+      updateCountEl.textContent = updateCount;
+
+      if (updateCount === 1) {
+        log('🎉 First sensor data received!', true);
+        setStatus('✅ Sensors working!', 'active');
+      }
+
+      const accel = event.accelerationIncludingGravity;
+      if (accel) {
+        const x = accel.x || 0;
+        const y = accel.y || 0;
+        const z = accel.z || 0;
+        const total = Math.sqrt(x*x + y*y + z*z);
+        
+        totalForceEl.textContent = total.toFixed(1);
+        
+        // Visual feedback on movement
+        if (total > 12) {
+          totalForceEl.className = 'sensor-value pulse';
+        } else {
+          totalForceEl.className = 'sensor-value';
+        }
+        
+        if (updateCount % 30 === 0) {
+          log(`Update ${updateCount}: Force = ${total.toFixed(1)}`);
+        }
+      } else {
+        if (updateCount === 1) {
+          log('⚠️ No acceleration data in event', true);
+        }
+      }
+    }
+
+    // Button click handler
+    startBtn.addEventListener('click', () => {
+      log('User clicked start button', true);
+      startTracking();
+    });
+
+    log('Page loaded - ready to start');
+  </script>
+</body>
+</html>
