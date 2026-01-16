@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Motion Test - Fixed Movement Detection</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      color: white;
+    }
+    
+    .container {
+      background: white;
+      border-radius: 20px;
+      padding: 40px;
+      max-width: 500px;
+      width: 100%;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      color: #333;
+      text-align: center;
+    }
+    
+    h1 {
+      font-size: 2.5rem;
+      margin-bottom: 10px;
+    }
+    
+    .status {
+      padding: 15px;
+      border-radius: 10px;
+      margin: 20px 0;
+      font-weight: bold;
+    }
+    
+    .status-waiting { background: #fef3c7; color: #92400e; }
+    .status-moving { background: #d1fae5; color: #065f46; }
+    .status-still { background: #e0e7ff; color: #3730a3; }
+    .status-error { background: #fee2e2; color: #991b1b; }
+    
+    .big-button {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      padding: 20px 40px;
+      font-size: 1.3rem;
+      font-weight: bold;
+      border-radius: 50px;
+      cursor: pointer;
+      width: 100%;
+      margin: 20px 0;
+      box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+      transition: transform 0.2s;
+    }
+    
+    .big-button:active {
+      transform: scale(0.95);
+    }
+    
+    .big-button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    
+    .sensor-display {
+      background: #f9fafb;
+      border-radius: 15px;
+      padding: 25px;
+      margin: 20px 0;
+    }
+    
+    .sensor-value {
+      font-size: 3rem;
+      font-weight: bold;
+      font-family: 'Courier New', monospace;
+      color: #667eea;
+      margin: 10px 0;
+    }
+    
+    .label {
+      font-size: 0.9rem;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 5px;
+    }
+    
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+      margin-top: 20px;
+    }
+    
+    .metric-box {
+      background: #f3f4f6;
+      padding: 15px;
+      border-radius: 10px;
+    }
+    
+    .pulse {
+      animation: pulse 1s infinite;
+    }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🚗 Movement Test</h1>
+    <p style="color: #666; font-size: 14px;">Fixed - Detects actual movement only</p>
+    
+    <div id="status" class="status status-waiting">
+      Tap button to start
+    </div>
+    
+    <button id="startBtn" class="big-button">
+      🚀 Start Movement Test
+    </button>
+    
+    <div id="sensorData" style="display: none;">
+      <div class="sensor-display">
+        <div class="label">Movement Detected</div>
+        <div id="movementStrength" class="sensor-value">0.0</div>
+        <div style="font-size: 0.8rem; color: #6b7280;">Change in acceleration (delta)</div>
+      </div>
+      
+      <div class="grid">
+        <div class="metric-box">
+          <div class="label" style="font-size: 0.75rem;">Updates</div>
+          <div id="updateCount" style="font-size: 1.5rem; font-weight: bold; color: #667eea;">0</div>
+        </div>
+        
+        <div class="metric-box">
+          <div class="label" style="font-size: 0.75rem;">Movement Events</div>
+          <div id="movementCount" style="font-size: 1.5rem; font-weight: bold; color: #10b981;">0</div>
+        </div>
+        
+        <div class="metric-box">
+          <div class="label" style="font-size: 0.75rem;">Still Time</div>
+          <div id="stillTime" style="font-size: 1.5rem; font-weight: bold; color: #3b82f6;">0s</div>
+        </div>
+        
+        <div class="metric-box">
+          <div class="label" style="font-size: 0.75rem;">State</div>
+          <div id="motionState" style="font-size: 1rem; font-weight: bold; color: #6b7280;">-</div>
+        </div>
+      </div>
+      
+      <div style="margin-top: 20px; padding: 15px; background: #dbeafe; border-radius: 10px; font-size: 14px; color: #1e40af;">
+        <strong>✨ Test it:</strong><br>
+        Stand still → Should show "Still" state<br>
+        Start walking → Should detect movement!<br>
+        Stop walking → Back to "Still"
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let updateCount = 0;
+    let movementEventCount = 0;
+    let isActive = false;
+    let stillTimer = 0;
+    let stillInterval = null;
+    
+    // Track previous acceleration to detect changes
+    let lastAccel = { x: 0, y: 0, z: 0 };
+    let isCalibrated = false;
+    let calibrationCount = 0;
+    
+    const statusEl = document.getElementById('status');
+    const startBtn = document.getElementById('startBtn');
+    const sensorDataEl = document.getElementById('sensorData');
+    const movementStrengthEl = document.getElementById('movementStrength');
+    const updateCountEl = document.getElementById('updateCount');
+    const movementCountEl = document.getElementById('movementCount');
+    const stillTimeEl = document.getElementById('stillTime');
+    const motionStateEl = document.getElementById('motionState');
+
+    function setStatus(message, type) {
+      statusEl.textContent = message;
+      statusEl.className = 'status status-' + type;
+    }
+
+    async function startTracking() {
+      startBtn.disabled = true;
+      setStatus('Requesting permission...', 'waiting');
+
+      try {
+        if (typeof DeviceMotionEvent !== 'undefined' && 
+            typeof DeviceMotionEvent.requestPermission === 'function') {
+          
+          const permission = await DeviceMotionEvent.requestPermission();
+          
+          if (permission === 'granted') {
+            startSensors();
+          } else {
+            setStatus('❌ Permission denied', 'error');
+            startBtn.disabled = false;
+            startBtn.textContent = '🔄 Try Again';
+            alert('Permission denied. Please reload and allow motion access.');
+          }
+        } else {
+          startSensors();
+        }
+      } catch (error) {
+        setStatus('❌ Error: ' + error.message, 'error');
+        startBtn.disabled = false;
+        startBtn.textContent = '🔄 Try Again';
+      }
+    }
+
+    function startSensors() {
+      setStatus('📊 Calibrating sensors...', 'waiting');
+      sensorDataEl.style.display = 'block';
+      startBtn.style.display = 'none';
+      isActive = true;
+      isCalibrated = false;
+      calibrationCount = 0;
+
+      // Start still time tracker
+      stillInterval = setInterval(() => {
+        stillTimer++;
+        stillTimeEl.textContent = stillTimer + 's';
+      }, 1000);
+
+      window.addEventListener('devicemotion', handleMotion);
+    }
+
+    function handleMotion(event) {
+      if (!isActive) return;
+
+      updateCount++;
+      updateCountEl.textContent = updateCount;
+
+      const accel = event.accelerationIncludingGravity;
+      if (!accel) return;
+
+      const current = {
+        x: accel.x || 0,
+        y: accel.y || 0,
+        z: accel.z || 0
+      };
+
+      // Calibration phase (first 10 readings to establish baseline)
+      if (!isCalibrated) {
+        calibrationCount++;
+        if (calibrationCount === 1) {
+          lastAccel = current;
+        } else if (calibrationCount >= 10) {
+          isCalibrated = true;
+          setStatus('✅ Sensors calibrated!', 'moving');
+          setTimeout(() => {
+            setStatus('📱 Waiting for movement...', 'still');
+          }, 1000);
+        }
+        return;
+      }
+
+      // Calculate DELTA (change from last reading)
+      const deltaX = Math.abs(current.x - lastAccel.x);
+      const deltaY = Math.abs(current.y - lastAccel.y);
+      const deltaZ = Math.abs(current.z - lastAccel.z);
+      
+      // Total change in acceleration (this is actual movement!)
+      const movementDelta = Math.sqrt(deltaX*deltaX + deltaY*deltaY + deltaZ*deltaZ);
+      
+      movementStrengthEl.textContent = movementDelta.toFixed(2);
+      
+      // Movement threshold (detect actual movement, not gravity)
+      const MOVEMENT_THRESHOLD = 0.5; // Lower = more sensitive
+      
+      if (movementDelta > MOVEMENT_THRESHOLD) {
+        // Movement detected!
+        movementEventCount++;
+        movementCountEl.textContent = movementEventCount;
+        setStatus('🚶‍♂️ Moving!', 'moving');
+        movementStrengthEl.className = 'sensor-value pulse';
+        motionStateEl.textContent = 'MOVING';
+        motionStateEl.style.color = '#10b981';
+        
+        // Reset still timer
+        stillTimer = 0;
+      } else {
+        // Still
+        movementStrengthEl.className = 'sensor-value';
+        
+        // Only update status if we've been still for 2+ seconds
+        if (stillTimer >= 2) {
+          setStatus('🛑 Still (no movement)', 'still');
+          motionStateEl.textContent = 'STILL';
+          motionStateEl.style.color = '#3b82f6';
+        }
+      }
+      
+      // Update last acceleration for next comparison
+      lastAccel = current;
+    }
+
+    startBtn.addEventListener('click', startTracking);
+  </script>
+</body>
+</html>

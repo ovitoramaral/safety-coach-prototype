@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Safety Coach - Enhanced Walking Mode</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+        'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+        sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .animate-pulse {
+      animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+
+    @keyframes slideDown {
+      from {
+        transform: translateY(-100%);
+        opacity: 0;
+      }
+      to {
+        transform: translateY(0);
+        opacity: 1;
+      }
+    }
+
+    .slide-down {
+      animation: slideDown 0.3s ease-out;
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-5px); }
+      75% { transform: translateX(5px); }
+    }
+
+    .shake {
+      animation: shake 0.3s ease-in-out;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    // UI Components (same as before)
+    const Card = ({ className = '', children, ...props }) => (
+      <div className={`rounded-lg border border-slate-200 bg-white shadow-sm ${className}`} {...props}>
+        {children}
+      </div>
+    );
+
+    const CardHeader = ({ className = '', children, ...props }) => (
+      <div className={`flex flex-col space-y-1.5 p-6 ${className}`} {...props}>
+        {children}
+      </div>
+    );
+
+    const CardTitle = ({ className = '', children, ...props }) => (
+      <h3 className={`text-2xl font-semibold leading-none tracking-tight ${className}`} {...props}>
+        {children}
+      </h3>
+    );
+
+    const CardContent = ({ className = '', children, ...props }) => (
+      <div className={`p-6 pt-0 ${className}`} {...props}>
+        {children}
+      </div>
+    );
+
+    const Progress = ({ value = 0, max = 100, className = '', indicatorClassName = '' }) => {
+      const percentage = Math.min(Math.max((value / max) * 100, 0), 100);
+      return (
+        <div className={`relative h-4 w-full overflow-hidden rounded-full bg-slate-200 ${className}`}>
+          <div
+            className={`h-full bg-emerald-500 transition-all duration-300 ease-out ${indicatorClassName}`}
+            style={{ width: `${percentage}%` }}
+          />
+        </div>
+      );
+    };
+
+    const Badge = ({ variant = 'default', className = '', children, ...props }) => {
+      const variants = {
+        default: 'bg-slate-900 text-white',
+        success: 'bg-emerald-500 text-white',
+        warning: 'bg-amber-400 text-slate-900',
+        celebrate: 'bg-violet-500 text-white',
+        danger: 'bg-red-500 text-white',
+      };
+      return (
+        <span className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-semibold ${variants[variant]} ${className}`} {...props}>
+          {children}
+        </span>
+      );
+    };
+
+    const Button = ({ variant = 'default', size = 'default', className = '', children, disabled = false, ...props }) => {
+      const variants = {
+        default: 'bg-slate-900 text-white hover:bg-slate-800',
+        primary: 'bg-emerald-500 text-white hover:bg-emerald-600',
+        secondary: 'bg-slate-200 text-slate-900 hover:bg-slate-300',
+        outline: 'border-2 border-slate-300 bg-white text-slate-900 hover:bg-slate-50',
+      };
+      const sizeClasses = size === 'lg' ? 'px-8 py-4 text-lg' : 'px-6 py-3 text-base';
+      return (
+        <button
+          className={`inline-flex items-center justify-center rounded-lg font-semibold transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${variants[variant]} ${sizeClasses} ${className}`}
+          disabled={disabled}
+          {...props}
+        >
+          {children}
+        </button>
+      );
+    };
+
+    const Icon = ({ name, className = '', size = 24, ...props }) => {
+      return <i data-lucide={name} className={className} style={{ width: size, height: size }} {...props}></i>;
+    };
+
+    // Enhanced thresholds (more sensitive)
+    const THRESHOLDS = {
+      hardStop: 1.5,      // Lower = easier to trigger
+      quickStart: 1.2,
+      sharpTurn: 25,      // Lower = easier to trigger
+      roughMotion: 12,    // Lower = easier to trigger
+      smoothVariance: 3.0
+    };
+
+    // Sensor Debug Panel
+    function SensorDebugPanel({ sensorData, tripScore, isVisible, onToggle }) {
+      useEffect(() => {
+        lucide.createIcons();
+      }, [sensorData]);
+
+      if (!isVisible) {
+        return (
+          <button
+            onClick={onToggle}
+            className="fixed bottom-4 right-4 bg-slate-900 text-white p-3 rounded-full shadow-lg z-50"
+          >
+            <Icon name="activity" size={24} />
+          </button>
+        );
+      }
+
+      return (
+        <div className="fixed bottom-0 left-0 right-0 bg-slate-900 text-white p-4 shadow-2xl z-50 max-h-64 overflow-y-auto">
+          <div className="max-w-md mx-auto">
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="font-bold flex items-center gap-2">
+                <Icon name="activity" size={20} />
+                Sensor Debug
+              </h3>
+              <button onClick={onToggle} className="text-slate-400 hover:text-white">
+                <Icon name="x" size={20} />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              {/* Acceleration */}
+              <div className="bg-slate-800 p-2 rounded">
+                <div className="text-slate-400 text-xs mb-1">Acceleration</div>
+                <div className="font-mono">
+                  <div>X: {sensorData.accel.x.toFixed(2)}</div>
+                  <div>Y: {sensorData.accel.y.toFixed(2)}</div>
+                  <div>Z: {sensorData.accel.z.toFixed(2)}</div>
+                </div>
+              </div>
+
+              {/* Total Force */}
+              <div className="bg-slate-800 p-2 rounded">
+                <div className="text-slate-400 text-xs mb-1">Total Force</div>
+                <div className="text-2xl font-bold">
+                  {sensorData.totalForce.toFixed(1)}
+                </div>
+                <div className="text-xs text-slate-400">m/s²</div>
+              </div>
+
+              {/* Heading */}
+              <div className="bg-slate-800 p-2 rounded">
+                <div className="text-slate-400 text-xs mb-1">Heading</div>
+                <div className="text-2xl font-bold">
+                  {sensorData.heading.toFixed(0)}°
+                </div>
+              </div>
+
+              {/* Trip Score */}
+              <div className="bg-emerald-600 p-2 rounded">
+                <div className="text-emerald-100 text-xs mb-1">Trip Score</div>
+                <div className="text-2xl font-bold">
+                  {tripScore.toFixed(0)}
+                </div>
+                <div className="text-xs text-emerald-100">/ 100</div>
+              </div>
+
+              {/* Event Count */}
+              <div className="bg-slate-800 p-2 rounded col-span-2">
+                <div className="text-slate-400 text-xs mb-1">Events Detected</div>
+                <div className="flex gap-2 text-xs">
+                  <span>Hard Stops: {sensorData.eventCounts.hardStops}</span>
+                  <span>Turns: {sensorData.eventCounts.turns}</span>
+                  <span>Weaves: {sensorData.eventCounts.weaves}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-3 text-xs text-slate-400">
+              {sensorData.sensorActive ? (
+                <div className="flex items-center gap-2 text-emerald-400">
+                  <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
+                  Sensors active - move phone to see changes
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 text-amber-400">
+                  <div className="w-2 h-2 bg-amber-400 rounded-full"></div>
+                  Waiting for sensor data...
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Event Toast
+    function EventToast({ event, onDismiss }) {
+      useEffect(() => {
+        const timer = setTimeout(onDismiss, 3000);
+        lucide.createIcons();
+        return () => clearTimeout(timer);
+      }, [onDismiss]);
+
+      const configs = {
+        hard_brake: {
+          bg: 'bg-amber-50 border-amber-200',
+          icon: 'alert-circle',
+          iconColor: 'text-amber-600',
+          title: 'Hard Stop Detected'
+        },
+        sharp_turn: {
+          bg: 'bg-blue-50 border-blue-200',
+          icon: 'trending-up',
+          iconColor: 'text-blue-600',
+          title: 'Sharp Turn Detected'
+        },
+        lane_weaving: {
+          bg: 'bg-violet-50 border-violet-200',
+          icon: 'activity',
+          iconColor: 'text-violet-600',
+          title: 'Erratic Motion'
+        },
+        smooth_driving: {
+          bg: 'bg-emerald-50 border-emerald-200',
+          icon: 'zap',
+          iconColor: 'text-emerald-600',
+          title: 'Smooth Driving!'
+        }
+      };
+
+      const config = configs[event.type] || configs.hard_brake;
+
+      return (
+        <div className="slide-down fixed top-4 left-4 right-4 z-50 max-w-md mx-auto">
+          <div className={`${config.bg} border-2 rounded-lg p-4 shadow-lg shake`}>
+            <div className="flex items-start gap-3">
+              <Icon name={config.icon} size={24} className={`${config.iconColor} flex-shrink-0`} />
+              <div className="flex-1">
+                <h3 className="font-semibold text-slate-900">{config.title}</h3>
+                <p className="text-sm text-slate-700 mt-1">{event.coaching}</p>
+                {event.scoreImpact && (
+                  <div className="text-sm font-semibold mt-2 text-red-600">
+                    Score: {event.scoreImpact}
+                  </div>
+                )}
+              </div>
+              <button onClick={onDismiss} className="text-slate-400 hover:text-slate-600">
+                <Icon name="x" size={20} />
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Main Dashboard
+    function Dashboard({ trackingMode }) {
+      const [isTracking, setIsTracking] = useState(false);
+      const [toast, setToast] = useState(null);
+      const [tripEvents, setTripEvents] = useState([]);
+      const [tripScore, setTripScore] = useState(100);
+      const [tripDistance, setTripDistance] = useState(0);
+      const [tripDuration, setTripDuration] = useState(0);
+      const [showDebug, setShowDebug] = useState(true);
+      
+      const [sensorData, setSensorData] = useState({
+        accel: { x: 0, y: 0, z: 0 },
+        totalForce: 0,
+        heading: 0,
+        sensorActive: false,
+        eventCounts: { hardStops: 0, turns: 0, weaves: 0 }
+      });
+      
+      const lastAcceleration = useRef({ x: 0, y: 0, z: 0 });
+      const lastHeading = useRef(0);
+      const motionHistory = useRef([]);
+      const tripStartTime = useRef(null);
+      const intervalRef = useRef(null);
+
+      const userData = {
+        level: 'Gold',
+        streak: 12,
+        xp: 2470,
+        nextLevel: 3000,
+        safeMiles: 247
+      };
+
+      useEffect(() => {
+        lucide.createIcons();
+      }, [isTracking, toast, showDebug]);
+
+      // Handle DeviceMotion events
+      const handleMotion = (event) => {
+        if (!isTracking) return;
+
+        const accel = event.accelerationIncludingGravity;
+        if (!accel) return;
+
+        const currentAccel = {
+          x: accel.x || 0,
+          y: accel.y || 0,
+          z: accel.z || 0
+        };
+
+        const totalForce = Math.sqrt(
+          currentAccel.x ** 2 + 
+          currentAccel.y ** 2 + 
+          currentAccel.z ** 2
+        );
+
+        // Update sensor data for debug panel
+        setSensorData(prev => ({
+          ...prev,
+          accel: currentAccel,
+          totalForce: totalForce,
+          sensorActive: true
+        }));
+
+        // Detect hard stop (more sensitive threshold)
+        const deltaY = Math.abs(currentAccel.y - lastAcceleration.current.y);
+        if (deltaY > THRESHOLDS.hardStop) {
+          const gForce = (deltaY / 9.81).toFixed(2);
+          const scoreDeduction = 5;
+          setTripScore(prev => Math.max(0, prev - scoreDeduction));
+          
+          const eventData = {
+            type: 'hard_brake',
+            gForce: gForce,
+            coaching: 'In traffic, scan ahead to brake smoothly',
+            scoreImpact: `-${scoreDeduction} points`
+          };
+          setToast(eventData);
+          setTripEvents(prev => [...prev, eventData]);
+          setSensorData(prev => ({
+            ...prev,
+            eventCounts: { ...prev.eventCounts, hardStops: prev.eventCounts.hardStops + 1 }
+          }));
+        }
+
+        // Detect erratic motion
+        if (totalForce > THRESHOLDS.roughMotion) {
+          const scoreDeduction = 3;
+          setTripScore(prev => Math.max(0, prev - scoreDeduction));
+          
+          const eventData = {
+            type: 'lane_weaving',
+            coaching: 'Stay centered in your lane for safety',
+            scoreImpact: `-${scoreDeduction} points`
+          };
+          setToast(eventData);
+          setTripEvents(prev => [...prev, eventData]);
+          setSensorData(prev => ({
+            ...prev,
+            eventCounts: { ...prev.eventCounts, weaves: prev.eventCounts.weaves + 1 }
+          }));
+        }
+
+        // Track smooth driving
+        motionHistory.current.push(totalForce);
+        if (motionHistory.current.length > 20) {
+          motionHistory.current.shift();
+        }
+
+        lastAcceleration.current = currentAccel;
+      };
+
+      // Handle DeviceOrientation events
+      const handleOrientation = (event) => {
+        if (!isTracking) return;
+
+        const alpha = event.alpha;
+        if (alpha === null) return;
+
+        setSensorData(prev => ({
+          ...prev,
+          heading: alpha
+        }));
+
+        const headingDelta = Math.abs(alpha - lastHeading.current);
+        const normalizedDelta = Math.min(headingDelta, 360 - headingDelta);
+
+        if (normalizedDelta > THRESHOLDS.sharpTurn && lastHeading.current !== 0) {
+          const direction = (alpha - lastHeading.current > 0) ? 'right' : 'left';
+          const scoreDeduction = 4;
+          setTripScore(prev => Math.max(0, prev - scoreDeduction));
+          
+          const eventData = {
+            type: 'sharp_turn',
+            degrees: normalizedDelta.toFixed(0),
+            direction: direction,
+            coaching: 'Smooth steering keeps passengers comfortable',
+            scoreImpact: `-${scoreDeduction} points`
+          };
+          setToast(eventData);
+          setTripEvents(prev => [...prev, eventData]);
+          setSensorData(prev => ({
+            ...prev,
+            eventCounts: { ...prev.eventCounts, turns: prev.eventCounts.turns + 1 }
+          }));
+        }
+
+        lastHeading.current = alpha;
+      };
+
+      const startTracking = async () => {
+        setIsTracking(true);
+        setTripScore(100);
+        setTripEvents([]);
+        setTripDistance(0);
+        setTripDuration(0);
+        tripStartTime.current = Date.now();
+        setSensorData(prev => ({ 
+          ...prev, 
+          eventCounts: { hardStops: 0, turns: 0, weaves: 0 }
+        }));
+
+        // Request motion permission on iOS
+        if (typeof DeviceMotionEvent !== 'undefined' && 
+            typeof DeviceMotionEvent.requestPermission === 'function') {
+          try {
+            const permission = await DeviceMotionEvent.requestPermission();
+            if (permission !== 'granted') {
+              alert('Motion permission denied. Demo mode activated.');
+              return;
+            }
+          } catch (error) {
+            console.error('Motion permission error:', error);
+          }
+        }
+
+        // Start sensors
+        window.addEventListener('devicemotion', handleMotion);
+        window.addEventListener('deviceorientation', handleOrientation);
+
+        // Update trip duration every second
+        intervalRef.current = setInterval(() => {
+          const duration = (Date.now() - tripStartTime.current) / 1000;
+          setTripDuration(duration);
+          const distance = (duration * 3 / 3600) * 50 / 1000; // Walking speed to miles
+          setTripDistance(distance);
+        }, 1000);
+      };
+
+      const stopTracking = () => {
+        setIsTracking(false);
+        window.removeEventListener('devicemotion', handleMotion);
+        window.removeEventListener('deviceorientation', handleOrientation);
+        
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current);
+        }
+
+        const xpEarned = Math.floor(tripScore);
+        setToast({
+          type: 'smooth_driving',
+          coaching: `Trip completed! Score: ${tripScore.toFixed(0)}/100. +${xpEarned} XP earned 🎉`
+        });
+      };
+
+      return (
+        <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 pb-32">
+          {toast && <EventToast event={toast} onDismiss={() => setToast(null)} />}
+
+          <SensorDebugPanel 
+            sensorData={sensorData} 
+            tripScore={tripScore}
+            isVisible={showDebug}
+            onToggle={() => setShowDebug(!showDebug)}
+          />
+
+          {/* Tracking Status Banner */}
+          {isTracking && (
+            <div className="fixed top-0 left-0 right-0 bg-emerald-500 text-white py-3 px-4 shadow-lg z-40">
+              <div className="max-w-md mx-auto">
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-2">
+                    <Icon name="activity" size={20} className="animate-pulse" />
+                    <span className="font-semibold">Tracking Active</span>
+                  </div>
+                  <span className="text-sm">{tripDuration.toFixed(0)}s</span>
+                </div>
+                <div className="flex items-center gap-4 text-sm">
+                  <span>Score: {tripScore.toFixed(0)}/100</span>
+                  <span>Distance: {tripDistance.toFixed(2)} mi</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className={`max-w-md mx-auto p-4 space-y-4 ${isTracking ? 'pt-24' : ''}`}>
+            {/* Tracking Mode Badge */}
+            <div className="text-center">
+              <Badge variant={trackingMode === 'demo' ? 'warning' : 'success'}>
+                {trackingMode === 'full' && '🎉 Full tracking enabled'}
+                {trackingMode === 'motion-only' && '📱 Motion tracking active'}
+                {trackingMode === 'gps-only' && '📍 Location tracking active'}
+                {trackingMode === 'demo' && '🎮 Demo mode'}
+              </Badge>
+            </div>
+
+            {/* Real-Time Score Card */}
+            {isTracking && (
+              <Card className="shadow-lg border-2 border-emerald-500">
+                <CardContent className="pt-6">
+                  <div className="text-center">
+                    <div className="text-6xl font-bold text-emerald-600 mb-2">
+                      {tripScore.toFixed(0)}
+                    </div>
+                    <div className="text-sm text-slate-600 mb-4">TRIP SCORE</div>
+                    <Progress value={tripScore} max={100} className="h-6" />
+                    <div className="mt-3 text-sm text-slate-600">
+                      {tripScore >= 90 && "🎉 Excellent driving!"}
+                      {tripScore >= 75 && tripScore < 90 && "👍 Good job!"}
+                      {tripScore >= 50 && tripScore < 75 && "⚠️ Room for improvement"}
+                      {tripScore < 50 && "🚨 Focus on smooth driving"}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Instructions */}
+            <Card className="shadow-md bg-blue-50 border-blue-200">
+              <CardHeader>
+                <CardTitle className="text-lg text-blue-900 flex items-center gap-2">
+                  <Icon name="info" size={20} />
+                  How to Test
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="text-sm text-blue-800 space-y-2">
+                <ol className="list-decimal list-inside space-y-1">
+                  <li><strong>Tap "Start Tracking"</strong></li>
+                  <li>Watch the debug panel (bottom) for sensor activity</li>
+                  <li><strong>Walk normally</strong> - score stays high</li>
+                  <li><strong>STOP SUDDENLY</strong> - hard brake event (-5 pts)</li>
+                  <li><strong>TURN SHARPLY</strong> - turn event (-4 pts)</li>
+                  <li><strong>SHAKE PHONE</strong> - weaving event (-3 pts)</li>
+                  <li>Tap "End Trip" to see final score</li>
+                </ol>
+                <p className="font-semibold pt-2 text-blue-900">
+                  💡 Open debug panel to see live sensor readings!
+                </p>
+              </CardContent>
+            </Card>
+
+            {/* Start/Stop Button */}
+            <Button 
+              variant={isTracking ? 'secondary' : 'primary'}
+              size="lg"
+              className="w-full h-16 text-xl"
+              onClick={isTracking ? stopTracking : startTracking}
+            >
+              {isTracking ? (
+                <>
+                  <Icon name="square" size={24} className="mr-2" />
+                  End Trip
+                </>
+              ) : (
+                <>
+                  <Icon name="play" size={24} className="mr-2" />
+                  Start Tracking
+                </>
+              )}
+            </Button>
+
+            {/* Trip Summary (after trip ends) */}
+            {!isTracking && tripEvents.length > 0 && (
+              <Card className="shadow-lg border-2 border-violet-300">
+                <CardHeader>
+                  <CardTitle className="text-xl flex items-center gap-2">
+                    <Icon name="flag-checkered" size={24} />
+                    Trip Summary
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="grid grid-cols-3 gap-3 text-center">
+                    <div className="bg-emerald-50 p-3 rounded-lg">
+                      <div className="text-2xl font-bold text-emerald-600">
+                        {tripScore.toFixed(0)}
+                      </div>
+                      <div className="text-xs text-slate-600">Score</div>
+                    </div>
+                    <div className="bg-blue-50 p-3 rounded-lg">
+                      <div className="text-2xl font-bold text-blue-600">
+                        {tripDistance.toFixed(2)}
+                      </div>
+                      <div className="text-xs text-slate-600">Miles</div>
+                    </div>
+                    <div className="bg-violet-50 p-3 rounded-lg">
+                      <div className="text-2xl font-bold text-violet-600">
+                        {tripEvents.length}
+                      </div>
+                      <div className="text-xs text-slate-600">Events</div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="text-sm font-semibold text-slate-700">Events Detected:</div>
+                    {tripEvents.map((event, idx) => (
+                      <div key={idx} className="text-sm p-2 bg-slate-50 rounded flex justify-between">
+                        <span>{event.type.replace('_', ' ').toUpperCase()}</span>
+                        <span className="text-red-600">{event.scoreImpact}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="pt-3 text-center">
+                    <div className="text-lg font-bold text-emerald-600">
+                      +{Math.floor(tripScore)} XP Earned! 🎉
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Debug Log */}
+            {isTracking && (
+              <Card className="shadow-md bg-slate-50 border-slate-300">
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Icon name="terminal" size={20} />
+                    Sensor Log
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="bg-slate-900 rounded-lg p-3 max-h-32 overflow-y-auto">
+                    <div className="font-mono text-xs text-emerald-400 space-y-1">
+                      <div>Accel: X={sensorData.accel.x.toFixed(2)} Y={sensorData.accel.y.toFixed(2)} Z={sensorData.accel.z.toFixed(2)}</div>
+                      <div>Force: {sensorData.totalForce.toFixed(2)} m/s²</div>
+                      <div>Heading: {sensorData.heading.toFixed(0)}°</div>
+                      <div className="text-violet-400">Events: {sensorData.eventCounts.hardStops} stops, {sensorData.eventCounts.turns} turns, {sensorData.eventCounts.weaves} weaves</div>
+                      <div className="text-blue-400">Score: {tripScore.toFixed(0)}/100 | Distance: {tripDistance.toFixed(3)}mi | Time: {tripDuration.toFixed(0)}s</div>
+                    </div>
+                  </div>
+                  <div className="mt-3 text-xs text-slate-600 text-center">
+                    Real-time sensor readings • Updates ~60Hz
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Troubleshooting Footer */}
+            <Card className="shadow-md bg-blue-50 border-blue-200">
+              <CardContent className="pt-6">
+                <div className="text-center space-y-3">
+                  <div className="text-blue-900 font-semibold">
+                    📊 Want more detailed tracking?
+                  </div>
+                  <p className="text-sm text-blue-800">
+                    Try our GPS-powered test with real-time speed and distance:
+                  </p>
+                  <a 
+                    href="/motion-test-with-gps.html"
+                    className="inline-block w-full bg-blue-600 text-white font-semibold py-3 px-6 rounded-lg hover:bg-blue-700 transition"
+                  >
+                    🚗 Open GPS + Motion Test
+                  </a>
+                  <p className="text-xs text-blue-700">
+                    Real-time speed in mph • Distance tracking • Fixed movement detection
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      );
+    }
+
+    // Permission Flow (simplified for enhanced version)
+    function SafetyCoachApp() {
+      const [hasPermissions, setHasPermissions] = useState(false);
+      const [trackingMode, setTrackingMode] = useState('motion-only');
+
+      const requestPermissions = async () => {
+        if (typeof DeviceMotionEvent !== 'undefined') {
+          if (typeof DeviceMotionEvent.requestPermission === 'function') {
+            try {
+              const permission = await DeviceMotionEvent.requestPermission();
+              if (permission === 'granted') {
+                setTrackingMode('motion-only');
+                setHasPermissions(true);
+                return;
+              }
+            } catch (error) {
+              console.error('Permission error:', error);
+            }
+          } else {
+            // Android - auto-granted
+            setTrackingMode('motion-only');
+            setHasPermissions(true);
+            return;
+          }
+        }
+        
+        // Fallback
+        setTrackingMode('demo');
+        setHasPermissions(true);
+      };
+
+      if (!hasPermissions) {
+        return (
+          <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 p-4 flex items-center justify-center">
+            <div className="max-w-md mx-auto space-y-6 text-center">
+              <div className="text-6xl mb-4">🚗</div>
+              <h1 className="text-3xl font-bold">Enhanced Walking Mode</h1>
+              <p className="text-slate-600">
+                Real-time sensor tracking with live scoring and debug panel
+              </p>
+              <Button variant="primary" size="lg" onClick={requestPermissions} className="w-full">
+                <Icon name="play" size={20} className="mr-2" />
+                Start Demo
+              </Button>
+            </div>
+          </div>
+        );
+      }
+
+      return <Dashboard trackingMode={trackingMode} />;
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<SafetyCoachApp />);
+  </script>
+</body>
+</html>

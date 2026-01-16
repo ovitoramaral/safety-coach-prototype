@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sensor Diagnostic Tool</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: linear-gradient(to bottom, #f8fafc, #e2e8f0);
+      min-height: 100vh;
+      padding: 20px;
+    }
+    
+    .sensor-value {
+      font-family: 'Courier New', monospace;
+      font-size: 1.5rem;
+      font-weight: bold;
+    }
+    
+    .blink {
+      animation: blink 1s infinite;
+    }
+    
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+  </style>
+</head>
+<body>
+  <div class="max-w-2xl mx-auto">
+    <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+      <h1 class="text-3xl font-bold mb-2">🔧 Sensor Diagnostic Tool</h1>
+      <p class="text-slate-600 mb-4">Let's figure out what's happening with your sensors</p>
+      
+      <!-- Device Info -->
+      <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+        <h2 class="font-bold text-blue-900 mb-2">📱 Device Information</h2>
+        <div class="space-y-1 text-sm">
+          <div><strong>User Agent:</strong> <span id="userAgent"></span></div>
+          <div><strong>Platform:</strong> <span id="platform"></span></div>
+          <div><strong>Is Mobile:</strong> <span id="isMobile"></span></div>
+          <div><strong>Screen Size:</strong> <span id="screenSize"></span></div>
+        </div>
+      </div>
+
+      <!-- Sensor Availability -->
+      <div class="bg-slate-50 border border-slate-200 rounded-lg p-4 mb-4">
+        <h2 class="font-bold text-slate-900 mb-2">🎛️ Sensor Availability</h2>
+        <div class="space-y-2">
+          <div class="flex items-center justify-between">
+            <span>DeviceMotion API</span>
+            <span id="motionAvailable" class="px-3 py-1 rounded-full text-sm font-semibold"></span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span>DeviceOrientation API</span>
+            <span id="orientationAvailable" class="px-3 py-1 rounded-full text-sm font-semibold"></span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span>Geolocation API</span>
+            <span id="geoAvailable" class="px-3 py-1 rounded-full text-sm font-semibold"></span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span>Requires Permission</span>
+            <span id="requiresPermission" class="px-3 py-1 rounded-full text-sm font-semibold"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Permission Status -->
+      <div id="permissionSection" class="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4">
+        <h2 class="font-bold text-amber-900 mb-2">🔐 Permission Status</h2>
+        <div id="permissionStatus" class="text-sm mb-3"></div>
+        <button 
+          id="requestPermBtn"
+          class="w-full bg-amber-600 text-white font-semibold py-3 px-6 rounded-lg hover:bg-amber-700 transition"
+        >
+          Request Motion Permissions
+        </button>
+      </div>
+
+      <!-- Live Sensor Data -->
+      <div class="bg-emerald-50 border border-emerald-200 rounded-lg p-4 mb-4">
+        <h2 class="font-bold text-emerald-900 mb-2">📊 Live Sensor Data</h2>
+        <div id="sensorStatus" class="text-sm mb-3 flex items-center gap-2">
+          <div id="statusDot" class="w-3 h-3 bg-slate-400 rounded-full"></div>
+          <span id="statusText">Not started</span>
+        </div>
+        
+        <button 
+          id="startSensorsBtn"
+          class="w-full bg-emerald-600 text-white font-semibold py-3 px-6 rounded-lg hover:bg-emerald-700 transition mb-4"
+        >
+          Start Sensor Test
+        </button>
+
+        <!-- Motion Data -->
+        <div class="space-y-3">
+          <div class="bg-white rounded-lg p-3">
+            <div class="text-xs text-slate-600 mb-1">Acceleration X</div>
+            <div class="sensor-value text-blue-600" id="accelX">0.00</div>
+          </div>
+          <div class="bg-white rounded-lg p-3">
+            <div class="text-xs text-slate-600 mb-1">Acceleration Y</div>
+            <div class="sensor-value text-green-600" id="accelY">0.00</div>
+          </div>
+          <div class="bg-white rounded-lg p-3">
+            <div class="text-xs text-slate-600 mb-1">Acceleration Z</div>
+            <div class="sensor-value text-purple-600" id="accelZ">0.00</div>
+          </div>
+          <div class="bg-white rounded-lg p-3">
+            <div class="text-xs text-slate-600 mb-1">Total Force</div>
+            <div class="sensor-value text-red-600" id="totalForce">0.00</div>
+          </div>
+          <div class="bg-white rounded-lg p-3">
+            <div class="text-xs text-slate-600 mb-1">Heading (Compass)</div>
+            <div class="sensor-value text-violet-600" id="heading">0°</div>
+          </div>
+          <div class="bg-white rounded-lg p-3">
+            <div class="text-xs text-slate-600 mb-1">Updates Received</div>
+            <div class="sensor-value text-emerald-600" id="updateCount">0</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Event Log -->
+      <div class="bg-slate-50 border border-slate-200 rounded-lg p-4">
+        <h2 class="font-bold text-slate-900 mb-2">📝 Event Log</h2>
+        <div id="eventLog" class="space-y-1 text-xs font-mono max-h-40 overflow-y-auto"></div>
+      </div>
+    </div>
+
+    <!-- Instructions -->
+    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+      <h3 class="font-bold text-yellow-900 mb-2">💡 What to expect:</h3>
+      <ul class="text-sm text-yellow-800 space-y-1 list-disc list-inside">
+        <li><strong>If values change when you move:</strong> Sensors are working! ✅</li>
+        <li><strong>If values stay at 0:</strong> Sensors aren't responding ❌</li>
+        <li><strong>If "Updates Received" increases:</strong> Data is flowing ✅</li>
+        <li><strong>Desktop:</strong> Will show "Not Available" (expected) 💻</li>
+        <li><strong>Mobile:</strong> Should show real values when you walk/turn 📱</li>
+      </ul>
+    </div>
+  </div>
+
+  <script>
+    let updateCount = 0;
+    let sensorActive = false;
+
+    // Log to both console and UI
+    function log(message, type = 'info') {
+      console.log(message);
+      const logEl = document.getElementById('eventLog');
+      const time = new Date().toLocaleTimeString();
+      const colors = {
+        info: 'text-slate-600',
+        success: 'text-emerald-600',
+        error: 'text-red-600',
+        warning: 'text-amber-600'
+      };
+      logEl.innerHTML = `<div class="${colors[type]}">[${time}] ${message}</div>` + logEl.innerHTML;
+    }
+
+    // Initialize device info
+    function initDeviceInfo() {
+      document.getElementById('userAgent').textContent = navigator.userAgent;
+      document.getElementById('platform').textContent = navigator.platform;
+      
+      const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+      document.getElementById('isMobile').textContent = isMobile ? '✅ Yes' : '❌ No';
+      document.getElementById('screenSize').textContent = `${window.innerWidth}x${window.innerHeight}`;
+      
+      log(`Device detected: ${isMobile ? 'Mobile' : 'Desktop'}`, 'info');
+    }
+
+    // Check sensor availability
+    function checkSensorAvailability() {
+      const motionAvailable = typeof DeviceMotionEvent !== 'undefined';
+      const orientationAvailable = typeof DeviceOrientationEvent !== 'undefined';
+      const geoAvailable = 'geolocation' in navigator;
+      const requiresPermission = typeof DeviceMotionEvent !== 'undefined' && 
+                                typeof DeviceMotionEvent.requestPermission === 'function';
+
+      function setBadge(id, available) {
+        const el = document.getElementById(id);
+        if (available) {
+          el.textContent = '✅ Available';
+          el.className = 'px-3 py-1 rounded-full text-sm font-semibold bg-emerald-100 text-emerald-800';
+        } else {
+          el.textContent = '❌ Not Available';
+          el.className = 'px-3 py-1 rounded-full text-sm font-semibold bg-red-100 text-red-800';
+        }
+      }
+
+      setBadge('motionAvailable', motionAvailable);
+      setBadge('orientationAvailable', orientationAvailable);
+      setBadge('geoAvailable', geoAvailable);
+      
+      const permEl = document.getElementById('requiresPermission');
+      if (requiresPermission) {
+        permEl.textContent = '⚠️ Yes (iOS 13+)';
+        permEl.className = 'px-3 py-1 rounded-full text-sm font-semibold bg-amber-100 text-amber-800';
+        document.getElementById('permissionStatus').textContent = 'iOS detected. You must grant permission before sensors work.';
+        log('iOS device - permission required', 'warning');
+      } else if (motionAvailable) {
+        permEl.textContent = '✅ Auto-granted';
+        permEl.className = 'px-3 py-1 rounded-full text-sm font-semibold bg-emerald-100 text-emerald-800';
+        document.getElementById('permissionSection').className = 'bg-emerald-50 border border-emerald-200 rounded-lg p-4 mb-4';
+        document.getElementById('permissionStatus').textContent = 'Android/Desktop - sensors should work automatically.';
+        log('Android device - auto-granted', 'success');
+      } else {
+        permEl.textContent = '❌ Not Supported';
+        permEl.className = 'px-3 py-1 rounded-full text-sm font-semibold bg-red-100 text-red-800';
+        document.getElementById('permissionStatus').textContent = 'This device does not support motion sensors.';
+        log('Sensors not supported on this device', 'error');
+      }
+    }
+
+    // Request permissions
+    async function requestPermissions() {
+      log('Requesting motion permissions...', 'info');
+      
+      if (typeof DeviceMotionEvent !== 'undefined' && 
+          typeof DeviceMotionEvent.requestPermission === 'function') {
+        try {
+          const permission = await DeviceMotionEvent.requestPermission();
+          if (permission === 'granted') {
+            log('✅ Motion permission granted!', 'success');
+            document.getElementById('permissionStatus').textContent = '✅ Permission granted! You can now start sensors.';
+            document.getElementById('permissionSection').className = 'bg-emerald-50 border border-emerald-200 rounded-lg p-4 mb-4';
+          } else {
+            log('❌ Motion permission denied', 'error');
+            document.getElementById('permissionStatus').textContent = '❌ Permission denied. Check Settings → Safari → Motion & Orientation';
+          }
+        } catch (error) {
+          log(`❌ Permission error: ${error.message}`, 'error');
+        }
+      } else {
+        log('No permission needed on this device', 'success');
+      }
+    }
+
+    // Start sensors
+    function startSensors() {
+      log('Starting sensor monitoring...', 'info');
+      
+      const statusDot = document.getElementById('statusDot');
+      const statusText = document.getElementById('statusText');
+      
+      statusDot.className = 'w-3 h-3 bg-emerald-400 rounded-full blink';
+      statusText.textContent = 'Listening for sensor data...';
+      sensorActive = true;
+
+      // Motion listener
+      window.addEventListener('devicemotion', (event) => {
+        if (!sensorActive) return;
+        
+        updateCount++;
+        document.getElementById('updateCount').textContent = updateCount;
+        
+        if (updateCount === 1) {
+          log('🎉 First sensor data received!', 'success');
+          statusDot.className = 'w-3 h-3 bg-emerald-500 rounded-full';
+          statusText.textContent = '✅ Sensors active - move your device!';
+        }
+        
+        const accel = event.accelerationIncludingGravity;
+        if (accel) {
+          const x = accel.x || 0;
+          const y = accel.y || 0;
+          const z = accel.z || 0;
+          const total = Math.sqrt(x*x + y*y + z*z);
+          
+          document.getElementById('accelX').textContent = x.toFixed(2);
+          document.getElementById('accelY').textContent = y.toFixed(2);
+          document.getElementById('accelZ').textContent = z.toFixed(2);
+          document.getElementById('totalForce').textContent = total.toFixed(2);
+          
+          if (updateCount % 10 === 0) {
+            log(`Motion update #${updateCount}: Total force = ${total.toFixed(2)}`, 'info');
+          }
+        }
+      });
+
+      // Orientation listener
+      window.addEventListener('deviceorientation', (event) => {
+        if (!sensorActive) return;
+        
+        if (event.alpha !== null) {
+          document.getElementById('heading').textContent = event.alpha.toFixed(0) + '°';
+        }
+      });
+      
+      // Check if we're receiving data
+      setTimeout(() => {
+        if (updateCount === 0) {
+          log('⚠️ No sensor data after 3 seconds. Sensors may not be working.', 'warning');
+          statusDot.className = 'w-3 h-3 bg-red-500 rounded-full';
+          statusText.textContent = '❌ No sensor data received';
+        }
+      }, 3000);
+    }
+
+    // Stop sensors
+    function stopSensors() {
+      sensorActive = false;
+      log('Sensor monitoring stopped', 'info');
+      document.getElementById('statusDot').className = 'w-3 h-3 bg-slate-400 rounded-full';
+      document.getElementById('statusText').textContent = 'Stopped';
+    }
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+      initDeviceInfo();
+      checkSensorAvailability();
+      
+      document.getElementById('requestPermBtn').addEventListener('click', requestPermissions);
+      
+      const startBtn = document.getElementById('startSensorsBtn');
+      startBtn.addEventListener('click', () => {
+        if (!sensorActive) {
+          startSensors();
+          startBtn.textContent = 'Stop Sensor Test';
+          startBtn.className = 'w-full bg-red-600 text-white font-semibold py-3 px-6 rounded-lg hover:bg-red-700 transition mb-4';
+        } else {
+          stopSensors();
+          startBtn.textContent = 'Start Sensor Test';
+          startBtn.className = 'w-full bg-emerald-600 text-white font-semibold py-3 px-6 rounded-lg hover:bg-emerald-700 transition mb-4';
+        }
+      });
+      
+      log('Diagnostic tool initialized', 'success');
+    });
+  </script>
+</body>
+</html>

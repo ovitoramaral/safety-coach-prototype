@@ -1,0 +1,865 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Safety Coach - Walking Mode Demo</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+        'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+        sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .animate-pulse {
+      animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+
+    @keyframes slideDown {
+      from {
+        transform: translateY(-100%);
+        opacity: 0;
+      }
+      to {
+        transform: translateY(0);
+        opacity: 1;
+      }
+    }
+
+    .slide-down {
+      animation: slideDown 0.3s ease-out;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    // UI Components
+    const Card = ({ className = '', children, ...props }) => (
+      <div className={`rounded-lg border border-slate-200 bg-white shadow-sm ${className}`} {...props}>
+        {children}
+      </div>
+    );
+
+    const CardHeader = ({ className = '', children, ...props }) => (
+      <div className={`flex flex-col space-y-1.5 p-6 ${className}`} {...props}>
+        {children}
+      </div>
+    );
+
+    const CardTitle = ({ className = '', children, ...props }) => (
+      <h3 className={`text-2xl font-semibold leading-none tracking-tight ${className}`} {...props}>
+        {children}
+      </h3>
+    );
+
+    const CardContent = ({ className = '', children, ...props }) => (
+      <div className={`p-6 pt-0 ${className}`} {...props}>
+        {children}
+      </div>
+    );
+
+    const Progress = ({ value = 0, max = 100, className = '', indicatorClassName = '' }) => {
+      const percentage = Math.min(Math.max((value / max) * 100, 0), 100);
+      return (
+        <div className={`relative h-4 w-full overflow-hidden rounded-full bg-slate-200 ${className}`}>
+          <div
+            className={`h-full bg-emerald-500 transition-all duration-500 ease-out ${indicatorClassName}`}
+            style={{ width: `${percentage}%` }}
+          />
+        </div>
+      );
+    };
+
+    const Badge = ({ variant = 'default', className = '', children, ...props }) => {
+      const variants = {
+        default: 'bg-slate-900 text-white',
+        success: 'bg-emerald-500 text-white',
+        warning: 'bg-amber-400 text-slate-900',
+        celebrate: 'bg-violet-500 text-white',
+      };
+      return (
+        <span className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-semibold ${variants[variant]} ${className}`} {...props}>
+          {children}
+        </span>
+      );
+    };
+
+    const Button = ({ variant = 'default', size = 'default', className = '', children, disabled = false, ...props }) => {
+      const variants = {
+        default: 'bg-slate-900 text-white hover:bg-slate-800',
+        primary: 'bg-emerald-500 text-white hover:bg-emerald-600',
+        secondary: 'bg-slate-200 text-slate-900 hover:bg-slate-300',
+        outline: 'border-2 border-slate-300 bg-white text-slate-900 hover:bg-slate-50',
+      };
+      const sizeClasses = size === 'lg' ? 'px-8 py-4 text-lg' : 'px-6 py-3 text-base';
+      return (
+        <button
+          className={`inline-flex items-center justify-center rounded-lg font-semibold transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${variants[variant]} ${sizeClasses} ${className}`}
+          disabled={disabled}
+          {...props}
+        >
+          {children}
+        </button>
+      );
+    };
+
+    const Icon = ({ name, className = '', size = 24, ...props }) => {
+      return <i data-lucide={name} className={className} style={{ width: size, height: size }} {...props}></i>;
+    };
+
+    // Constants
+    const THRESHOLDS = {
+      hardStop: 2.5,
+      quickStart: 2.0,
+      sharpTurn: 35,
+      roughMotion: 15,
+      smoothVariance: 2.0
+    };
+
+    const WALKING_TO_DRIVING_SCALE = {
+      distance: 50,
+      speed: 15,
+      time: 0.5
+    };
+
+    // Permission Explainer Screen
+    function PermissionExplainer({ onRequestPermissions, onUseDemoMode }) {
+      useEffect(() => {
+        lucide.createIcons();
+      }, []);
+
+      return (
+        <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 p-4 flex items-center justify-center">
+          <div className="max-w-md mx-auto space-y-6">
+            <div className="text-center mb-8">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-emerald-100 mb-4">
+                <Icon name="shield" size={32} className="text-emerald-600" />
+              </div>
+              <h1 className="text-3xl font-bold text-slate-900 mb-2">Safety Coach</h1>
+              <p className="text-slate-600">Your friendly driving companion</p>
+            </div>
+
+            <Card className="shadow-lg">
+              <CardHeader>
+                <CardTitle className="text-xl">To get started, we need:</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-start gap-4">
+                  <div className="flex-shrink-0 w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                    <Icon name="map-pin" size={20} className="text-blue-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-slate-900">Location Access</h3>
+                    <p className="text-sm text-slate-600">Track your routes and detect driving context</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-4">
+                  <div className="flex-shrink-0 w-10 h-10 rounded-full bg-violet-100 flex items-center justify-center">
+                    <Icon name="activity" size={20} className="text-violet-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-slate-900">Motion Sensors</h3>
+                    <p className="text-sm text-slate-600">Detect braking, acceleration, and turns</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-4 p-3 bg-emerald-50 rounded-lg border border-emerald-200">
+                  <Icon name="shield" size={20} className="text-emerald-600 flex-shrink-0" />
+                  <div>
+                    <h3 className="font-semibold text-emerald-900 text-sm">Privacy Promise</h3>
+                    <p className="text-sm text-emerald-800">All data stays on your device. No cloud uploads.</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <div className="space-y-3">
+              <Button variant="primary" size="lg" className="w-full" onClick={onRequestPermissions}>
+                <Icon name="play" size={20} className="mr-2" />
+                Enable Tracking
+              </Button>
+              <button
+                onClick={onUseDemoMode}
+                className="w-full text-center text-sm text-slate-600 hover:text-slate-900 py-2"
+              >
+                Try demo mode instead →
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Permission Denied Recovery Screen
+    function PermissionDenied({ onTryAgain, onUseDemoMode }) {
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+
+      useEffect(() => {
+        lucide.createIcons();
+      }, []);
+
+      return (
+        <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 p-4 flex items-center justify-center">
+          <div className="max-w-md mx-auto space-y-6">
+            <div className="text-center">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-amber-100 mb-4">
+                <Icon name="alert-circle" size={32} className="text-amber-600" />
+              </div>
+              <h1 className="text-2xl font-bold text-slate-900 mb-2">Permissions Needed</h1>
+              <p className="text-slate-600">We need location and motion access to track your trips</p>
+            </div>
+
+            <Card className="shadow-lg">
+              <CardHeader>
+                <CardTitle className="text-lg">How to enable permissions:</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {isIOS ? (
+                  <div className="space-y-2 text-sm">
+                    <p className="font-semibold text-slate-900">On iOS:</p>
+                    <ol className="list-decimal list-inside space-y-1 text-slate-600">
+                      <li>Open <strong>Settings</strong></li>
+                      <li>Scroll to <strong>Safari</strong></li>
+                      <li>Tap <strong>Location</strong></li>
+                      <li>Select <strong>While Using</strong></li>
+                    </ol>
+                  </div>
+                ) : (
+                  <div className="space-y-2 text-sm">
+                    <p className="font-semibold text-slate-900">On Android:</p>
+                    <ol className="list-decimal list-inside space-y-1 text-slate-600">
+                      <li>Open <strong>Settings</strong></li>
+                      <li>Go to <strong>Apps</strong></li>
+                      <li>Find your <strong>Browser</strong></li>
+                      <li>Tap <strong>Permissions</strong></li>
+                      <li>Enable <strong>Location</strong></li>
+                    </ol>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <div className="space-y-3">
+              <Button variant="outline" size="lg" className="w-full" onClick={onTryAgain}>
+                <Icon name="refresh-cw" size={20} className="mr-2" />
+                Try Again
+              </Button>
+              <Button variant="secondary" size="lg" className="w-full" onClick={onUseDemoMode}>
+                Use Demo Mode
+              </Button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Event Toast
+    function EventToast({ event, onDismiss }) {
+      useEffect(() => {
+        const timer = setTimeout(onDismiss, 3000);
+        lucide.createIcons();
+        return () => clearTimeout(timer);
+      }, [onDismiss]);
+
+      const configs = {
+        hard_brake: {
+          bg: 'bg-amber-50 border-amber-200',
+          icon: 'alert-circle',
+          iconColor: 'text-amber-600',
+          title: 'Hard Stop Detected'
+        },
+        sharp_turn: {
+          bg: 'bg-blue-50 border-blue-200',
+          icon: 'trending-up',
+          iconColor: 'text-blue-600',
+          title: 'Sharp Turn Detected'
+        },
+        lane_weaving: {
+          bg: 'bg-violet-50 border-violet-200',
+          icon: 'activity',
+          iconColor: 'text-violet-600',
+          title: 'Erratic Motion'
+        },
+        smooth_driving: {
+          bg: 'bg-emerald-50 border-emerald-200',
+          icon: 'zap',
+          iconColor: 'text-emerald-600',
+          title: 'Smooth Driving!'
+        }
+      };
+
+      const config = configs[event.type] || configs.hard_brake;
+
+      return (
+        <div className={`slide-down fixed top-4 left-4 right-4 z-50 max-w-md mx-auto`}>
+          <div className={`${config.bg} border-2 rounded-lg p-4 shadow-lg`}>
+            <div className="flex items-start gap-3">
+              <Icon name={config.icon} size={24} className={`${config.iconColor} flex-shrink-0`} />
+              <div className="flex-1">
+                <h3 className="font-semibold text-slate-900">{config.title}</h3>
+                <p className="text-sm text-slate-700 mt-1">{event.coaching}</p>
+              </div>
+              <button onClick={onDismiss} className="text-slate-400 hover:text-slate-600">
+                <Icon name="x" size={20} />
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Main Dashboard
+    function Dashboard({ trackingMode, onStartTracking }) {
+      const [isTracking, setIsTracking] = useState(false);
+      const [currentEvent, setCurrentEvent] = useState(null);
+      const [tripEvents, setTripEvents] = useState([]);
+      const [toast, setToast] = useState(null);
+      const [trackingStatus, setTrackingStatus] = useState('Waiting to start...');
+      const [tripDistance, setTripDistance] = useState(0);
+      const [tripStartTime, setTripStartTime] = useState(null);
+      
+      const lastAcceleration = useRef({ x: 0, y: 0, z: 0 });
+      const lastHeading = useRef(0);
+      const motionHistory = useRef([]);
+      const positionWatcher = useRef(null);
+
+      const userData = {
+        level: 'Gold',
+        streak: 12,
+        xp: 2470,
+        nextLevel: 3000,
+        safeMiles: 247
+      };
+
+      const todayMission = {
+        title: 'Maintain 3-sec following distance',
+        description: 'Keep safe spacing in traffic',
+        progress: 4,
+        total: 10,
+        unit: 'miles'
+      };
+
+      const lastTrip = {
+        route: 'Main St → Home',
+        time: '2:34 PM',
+        distance: 2.5,
+        hardBrakes: 2,
+        xpEarned: 50,
+        tip: 'High traffic zone ahead. Try Route 9 instead for smoother flow!'
+      };
+
+      const achievements = [
+        { id: 1, name: 'Week Warrior', icon: '🏅', unlocked: true },
+        { id: 2, name: 'Smooth Operator', icon: '🏅', unlocked: true },
+        { id: 3, name: 'Distance Master', icon: '🏅', unlocked: true },
+        { id: 4, name: 'Night Owl', icon: '🏆', unlocked: false },
+        { id: 5, name: 'Eco Driver', icon: '🏆', unlocked: false },
+      ];
+
+      useEffect(() => {
+        lucide.createIcons();
+      }, [isTracking, toast, tripEvents]);
+
+      // Handle DeviceMotion events
+      const handleMotion = (event) => {
+        if (!isTracking) return;
+
+        const accel = event.accelerationIncludingGravity;
+        if (!accel) return;
+
+        const currentAccel = {
+          x: accel.x || 0,
+          y: accel.y || 0,
+          z: accel.z || 0
+        };
+
+        // Detect hard stop (sudden deceleration)
+        const deltaY = Math.abs(currentAccel.y - lastAcceleration.current.y);
+        if (deltaY > THRESHOLDS.hardStop) {
+          const gForce = (deltaY / 9.81).toFixed(2);
+          const event = {
+            type: 'hard_brake',
+            severity: 'medium',
+            gForce: gForce,
+            coaching: 'In traffic, scan ahead to brake smoothly'
+          };
+          setToast(event);
+          setTripEvents(prev => [...prev, event]);
+          setTrackingStatus('Hard stop detected!');
+        }
+
+        // Detect erratic motion (phone shake)
+        const totalForce = Math.sqrt(
+          currentAccel.x ** 2 + 
+          currentAccel.y ** 2 + 
+          currentAccel.z ** 2
+        );
+
+        if (totalForce > THRESHOLDS.roughMotion) {
+          const event = {
+            type: 'lane_weaving',
+            coaching: 'Stay centered in your lane for safety'
+          };
+          setToast(event);
+          setTripEvents(prev => [...prev, event]);
+          setTrackingStatus('Erratic motion detected');
+        }
+
+        // Track motion variance for smooth driving detection
+        motionHistory.current.push(totalForce);
+        if (motionHistory.current.length > 20) {
+          motionHistory.current.shift();
+          
+          const variance = calculateVariance(motionHistory.current);
+          if (variance < THRESHOLDS.smoothVariance) {
+            setTrackingStatus('Smooth cruising... ✨');
+          }
+        }
+
+        lastAcceleration.current = currentAccel;
+      };
+
+      // Handle DeviceOrientation events
+      const handleOrientation = (event) => {
+        if (!isTracking) return;
+
+        const alpha = event.alpha;
+        if (alpha === null) return;
+
+        const headingDelta = Math.abs(alpha - lastHeading.current);
+        const normalizedDelta = Math.min(headingDelta, 360 - headingDelta);
+
+        if (normalizedDelta > THRESHOLDS.sharpTurn) {
+          const direction = (alpha - lastHeading.current > 0) ? 'right' : 'left';
+          const event = {
+            type: 'sharp_turn',
+            degrees: normalizedDelta.toFixed(0),
+            direction: direction,
+            coaching: 'Smooth steering keeps passengers comfortable'
+          };
+          setToast(event);
+          setTripEvents(prev => [...prev, event]);
+          setTrackingStatus(`Sharp ${direction} turn!`);
+        }
+
+        lastHeading.current = alpha;
+      };
+
+      const calculateVariance = (values) => {
+        const mean = values.reduce((a, b) => a + b, 0) / values.length;
+        const squareDiffs = values.map(value => Math.pow(value - mean, 2));
+        return Math.sqrt(squareDiffs.reduce((a, b) => a + b, 0) / values.length);
+      };
+
+      const startTracking = async () => {
+        setIsTracking(true);
+        setTripStartTime(Date.now());
+        setTripEvents([]);
+        setTrackingStatus('Starting tracking...');
+
+        // Request motion permission on iOS
+        if (typeof DeviceMotionEvent !== 'undefined' && 
+            typeof DeviceMotionEvent.requestPermission === 'function') {
+          try {
+            const permission = await DeviceMotionEvent.requestPermission();
+            if (permission !== 'granted') {
+              setTrackingStatus('Motion permission denied');
+              return;
+            }
+          } catch (error) {
+            console.error('Motion permission error:', error);
+          }
+        }
+
+        // Start motion tracking
+        window.addEventListener('devicemotion', handleMotion);
+        window.addEventListener('deviceorientation', handleOrientation);
+
+        // Start GPS tracking if available
+        if (trackingMode === 'full' || trackingMode === 'gps-only') {
+          positionWatcher.current = navigator.geolocation.watchPosition(
+            (position) => {
+              setTrackingStatus('GPS tracking active');
+            },
+            (error) => {
+              console.error('GPS error:', error);
+            },
+            { enableHighAccuracy: false }
+          );
+        }
+
+        setTrackingStatus('Tracking active - start walking!');
+      };
+
+      const stopTracking = () => {
+        setIsTracking(false);
+        window.removeEventListener('devicemotion', handleMotion);
+        window.removeEventListener('deviceorientation', handleOrientation);
+        
+        if (positionWatcher.current) {
+          navigator.geolocation.clearWatch(positionWatcher.current);
+        }
+
+        // Calculate trip stats
+        const duration = (Date.now() - tripStartTime) / 1000;
+        const simulatedDistance = (duration * 3 / 3600) * WALKING_TO_DRIVING_SCALE.distance / 1000;
+        setTripDistance(simulatedDistance);
+        
+        setTrackingStatus('Trip completed!');
+        
+        // Show completion toast
+        const completionEvent = {
+          type: 'smooth_driving',
+          coaching: `Nice work! Trip completed. +${Math.floor(simulatedDistance * 20)} XP earned 🎉`
+        };
+        setToast(completionEvent);
+      };
+
+      const handleTrackingToggle = () => {
+        if (isTracking) {
+          stopTracking();
+        } else {
+          startTracking();
+        }
+      };
+
+      return (
+        <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 pb-20">
+          {toast && <EventToast event={toast} onDismiss={() => setToast(null)} />}
+
+          {/* Tracking Status Banner */}
+          {isTracking && (
+            <div className="fixed top-0 left-0 right-0 bg-emerald-500 text-white py-3 px-4 shadow-lg z-40">
+              <div className="max-w-md mx-auto flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Icon name="activity" size={20} className="animate-pulse" />
+                  <span className="font-semibold">Tracking Active</span>
+                </div>
+                <span className="text-sm">{trackingStatus}</span>
+              </div>
+            </div>
+          )}
+
+          <div className={`max-w-md mx-auto p-4 space-y-4 ${isTracking ? 'pt-20' : ''}`}>
+            {/* Tracking Mode Badge */}
+            <div className="text-center">
+              <Badge variant={trackingMode === 'demo' ? 'warning' : 'success'}>
+                {trackingMode === 'full' && '🎉 Full tracking enabled'}
+                {trackingMode === 'motion-only' && '📱 Motion tracking active'}
+                {trackingMode === 'gps-only' && '📍 Location tracking active'}
+                {trackingMode === 'demo' && '🎮 Demo mode'}
+              </Badge>
+            </div>
+
+            {/* Hero Stats Card */}
+            <Card className="bg-gradient-to-br from-emerald-500 to-emerald-600 text-white border-0 shadow-lg">
+              <CardContent className="pt-6">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <Icon name="trophy" size={32} />
+                    <div>
+                      <Badge variant="celebrate" className="mb-1">
+                        {userData.level} Streak
+                      </Badge>
+                      <div className="text-sm opacity-90">Day {userData.streak}</div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-3xl font-bold">{userData.safeMiles}</div>
+                    <div className="text-sm opacity-90">safe miles</div>
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="opacity-90">Level Progress</span>
+                    <span className="font-semibold">{userData.xp} / {userData.nextLevel} XP</span>
+                  </div>
+                  <Progress 
+                    value={userData.xp} 
+                    max={userData.nextLevel}
+                    className="bg-emerald-400/30"
+                    indicatorClassName="bg-white"
+                  />
+                  <div className="text-sm font-medium text-center pt-2">
+                    "You're crushing it! 🎉"
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Active Mission Card */}
+            <Card className="shadow-md">
+              <CardHeader>
+                <div className="flex items-center gap-2 text-slate-600 mb-2">
+                  <Icon name="target" size={20} />
+                  <span className="text-sm font-semibold uppercase tracking-wide">Today's Mission</span>
+                </div>
+                <CardTitle className="text-xl">{todayMission.title}</CardTitle>
+                <p className="text-sm text-slate-600">{todayMission.description}</p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <div className="flex justify-between text-sm mb-2">
+                    <span className="text-slate-600">Progress</span>
+                    <span className="font-semibold">
+                      {todayMission.progress} / {todayMission.total} {todayMission.unit}
+                    </span>
+                  </div>
+                  <Progress 
+                    value={todayMission.progress} 
+                    max={todayMission.total}
+                  />
+                </div>
+                
+                <Button 
+                  variant={isTracking ? 'secondary' : 'primary'}
+                  size="lg"
+                  className="w-full"
+                  onClick={handleTrackingToggle}
+                >
+                  {isTracking ? (
+                    <>
+                      <Icon name="square" size={20} className="mr-2" />
+                      End Trip
+                    </>
+                  ) : (
+                    <>
+                      <Icon name="play" size={20} className="mr-2" />
+                      Start Tracking
+                    </>
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Demo Instructions Card */}
+            <Card className="shadow-md bg-blue-50 border-blue-200">
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <Icon name="info" size={20} className="text-blue-600" />
+                  <CardTitle className="text-lg text-blue-900">🎬 Demo Instructions</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent className="text-sm text-blue-800 space-y-2">
+                <ol className="list-decimal list-inside space-y-1">
+                  <li>Tap "Start Tracking"</li>
+                  <li>Walk normally for 10 seconds</li>
+                  <li><strong>STOP SUDDENLY</strong> → Hard brake detected</li>
+                  <li>Walk 5 steps</li>
+                  <li><strong>TURN SHARP RIGHT</strong> (90°) → Turn detected</li>
+                  <li>Walk normally for 8 seconds</li>
+                  <li>Tap "End Trip" to see summary</li>
+                </ol>
+                <p className="font-semibold pt-2">Total demo time: ~45 seconds</p>
+              </CardContent>
+            </Card>
+
+            {/* Latest Trip Insight Card */}
+            <Card className="shadow-md">
+              <CardHeader>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2 text-slate-600">
+                    <Icon name="car" size={20} />
+                    <span className="text-sm font-semibold">Last Trip</span>
+                  </div>
+                  <span className="text-sm text-slate-500">{lastTrip.time}</span>
+                </div>
+                <CardTitle className="text-lg">{lastTrip.route}</CardTitle>
+                <p className="text-sm text-slate-600">{lastTrip.distance} miles</p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {lastTrip.hardBrakes > 0 && (
+                  <div className="flex items-start gap-3 p-3 rounded-lg bg-amber-50 border border-amber-200">
+                    <Icon name="alert-circle" size={20} className="text-amber-600 flex-shrink-0 mt-0.5" />
+                    <div className="text-sm">
+                      <span className="font-semibold text-amber-900">
+                        {lastTrip.hardBrakes} hard brakes detected
+                      </span>
+                      <p className="text-amber-800 mt-1">
+                        But hey, you're doing great overall!
+                      </p>
+                    </div>
+                  </div>
+                )}
+                
+                <div className="flex items-start gap-3 p-3 rounded-lg bg-violet-50 border border-violet-200">
+                  <Icon name="lightbulb" size={20} className="text-violet-600 flex-shrink-0 mt-0.5" />
+                  <div className="text-sm">
+                    <span className="font-semibold text-violet-900">Pro Tip</span>
+                    <p className="text-violet-800 mt-1">{lastTrip.tip}</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center justify-center gap-2 p-4 rounded-lg bg-gradient-to-r from-emerald-500 to-emerald-600 text-white">
+                  <Icon name="zap" size={24} />
+                  <span className="text-lg font-bold">+{lastTrip.xpEarned} XP earned!</span>
+                  <span className="text-2xl">🎉</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Quick Achievement Peek */}
+            <Card className="shadow-md">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Icon name="award" size={20} className="text-slate-600" />
+                    <CardTitle className="text-lg">Recent Unlocks</CardTitle>
+                  </div>
+                  <button className="text-sm text-emerald-600 font-semibold hover:text-emerald-700">
+                    View All →
+                  </button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="flex gap-3 overflow-x-auto pb-2">
+                  {achievements.map((achievement) => (
+                    <div
+                      key={achievement.id}
+                      className={`flex-shrink-0 flex flex-col items-center justify-center w-20 h-20 rounded-lg border-2 transition-all ${
+                        achievement.unlocked
+                          ? 'bg-gradient-to-br from-violet-100 to-violet-50 border-violet-300 shadow-sm'
+                          : 'bg-slate-50 border-slate-200 opacity-50'
+                      }`}
+                    >
+                      <span className="text-3xl mb-1">{achievement.icon}</span>
+                      {achievement.unlocked && (
+                        <span className="text-xs font-semibold text-violet-700">New!</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Footer */}
+            <div className="text-center py-6 text-sm text-slate-500">
+              <p>Keep up the amazing work! 💪</p>
+              <p className="mt-1">3 more trips to unlock Silver tier</p>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Main App
+    function SafetyCoachApp() {
+      const [screen, setScreen] = useState('explainer'); // explainer, denied, dashboard
+      const [trackingMode, setTrackingMode] = useState('demo'); // demo, full, motion-only, gps-only
+
+      const requestPermissions = async () => {
+        let hasGPS = false;
+        let hasMotion = false;
+
+        // Request Geolocation
+        if (navigator.geolocation) {
+          try {
+            await new Promise((resolve, reject) => {
+              navigator.geolocation.getCurrentPosition(
+                () => {
+                  hasGPS = true;
+                  resolve();
+                },
+                (error) => {
+                  if (error.code === 1) {
+                    // Permission denied
+                    reject(error);
+                  } else {
+                    // Other errors - still consider it available but not working
+                    resolve();
+                  }
+                },
+                { enableHighAccuracy: false, timeout: 5000 }
+              );
+            });
+          } catch (error) {
+            console.log('GPS permission denied or unavailable');
+          }
+        }
+
+        // Request Motion (iOS requires explicit permission)
+        if (typeof DeviceMotionEvent !== 'undefined') {
+          if (typeof DeviceMotionEvent.requestPermission === 'function') {
+            try {
+              const permission = await DeviceMotionEvent.requestPermission();
+              hasMotion = permission === 'granted';
+            } catch (error) {
+              console.log('Motion permission denied');
+            }
+          } else {
+            // Android - auto-granted
+            hasMotion = true;
+          }
+        }
+
+        // Determine tracking mode
+        if (hasGPS && hasMotion) {
+          setTrackingMode('full');
+        } else if (hasMotion) {
+          setTrackingMode('motion-only');
+        } else if (hasGPS) {
+          setTrackingMode('gps-only');
+        } else {
+          // Both denied
+          setScreen('denied');
+          return;
+        }
+
+        setScreen('dashboard');
+      };
+
+      const useDemoMode = () => {
+        setTrackingMode('demo');
+        setScreen('dashboard');
+      };
+
+      if (screen === 'explainer') {
+        return (
+          <PermissionExplainer
+            onRequestPermissions={requestPermissions}
+            onUseDemoMode={useDemoMode}
+          />
+        );
+      }
+
+      if (screen === 'denied') {
+        return (
+          <PermissionDenied
+            onTryAgain={requestPermissions}
+            onUseDemoMode={useDemoMode}
+          />
+        );
+      }
+
+      return <Dashboard trackingMode={trackingMode} />;
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<SafetyCoachApp />);
+  </script>
+</body>
+</html>

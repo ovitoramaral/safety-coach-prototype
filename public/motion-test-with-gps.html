@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Motion + GPS Test</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      color: white;
+    }
+    
+    .container {
+      background: white;
+      border-radius: 20px;
+      padding: 40px 30px;
+      max-width: 500px;
+      width: 100%;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      color: #333;
+      text-align: center;
+    }
+    
+    h1 {
+      font-size: 2.2rem;
+      margin-bottom: 5px;
+    }
+    
+    .status {
+      padding: 15px;
+      border-radius: 10px;
+      margin: 20px 0;
+      font-weight: bold;
+      font-size: 0.95rem;
+    }
+    
+    .status-waiting { background: #fef3c7; color: #92400e; }
+    .status-moving { background: #d1fae5; color: #065f46; }
+    .status-still { background: #e0e7ff; color: #3730a3; }
+    .status-error { background: #fee2e2; color: #991b1b; }
+    
+    .big-button {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      padding: 18px 40px;
+      font-size: 1.2rem;
+      font-weight: bold;
+      border-radius: 50px;
+      cursor: pointer;
+      width: 100%;
+      margin: 20px 0;
+      box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+      transition: transform 0.2s;
+    }
+    
+    .big-button:active {
+      transform: scale(0.95);
+    }
+    
+    .big-button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    
+    .big-display {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border-radius: 15px;
+      padding: 25px;
+      margin: 20px 0;
+      color: white;
+    }
+    
+    .big-value {
+      font-size: 4rem;
+      font-weight: bold;
+      font-family: 'Courier New', monospace;
+      margin: 10px 0;
+      line-height: 1;
+    }
+    
+    .label {
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      opacity: 0.9;
+    }
+    
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 20px;
+    }
+    
+    .metric-box {
+      background: #f3f4f6;
+      padding: 15px;
+      border-radius: 10px;
+      text-align: center;
+    }
+    
+    .metric-value {
+      font-size: 1.8rem;
+      font-weight: bold;
+      font-family: 'Courier New', monospace;
+      color: #667eea;
+    }
+    
+    .metric-label {
+      font-size: 0.7rem;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-top: 5px;
+    }
+    
+    .pulse {
+      animation: pulse 1s infinite;
+    }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Back Button (shows when coming from dashboard) -->
+    <div id="backButton" style="display: none; margin-bottom: 20px;">
+      <a href="/safety-coach-integrated.html" style="display: inline-flex; align-items: center; gap: 8px; color: #667eea; text-decoration: none; font-weight: 600; font-size: 14px;">
+        <span style="font-size: 20px;">←</span>
+        Back to Dashboard
+      </a>
+    </div>
+
+    <h1>🚗 Movement + GPS</h1>
+    <p style="color: #666; font-size: 13px; margin-bottom: 20px;">Real-time speed and distance tracking</p>
+    
+    <div id="status" class="status status-waiting">
+      Tap button to start
+    </div>
+    
+    <button id="startBtn" class="big-button">
+      🚀 Start Tracking
+    </button>
+    
+    <div id="sensorData" style="display: none;">
+      <!-- Speed Display -->
+      <div class="big-display">
+        <div class="label">Current Speed</div>
+        <div id="speed" class="big-value">0.0</div>
+        <div style="font-size: 1.2rem; opacity: 0.9;">km/h</div>
+      </div>
+      
+      <!-- Main Metrics Grid -->
+      <div class="grid">
+        <div class="metric-box">
+          <div class="metric-value" id="distance">0.00</div>
+          <div class="metric-label">Distance (km)</div>
+        </div>
+        
+        <div class="metric-box">
+          <div class="metric-value" id="duration">0:00</div>
+          <div class="metric-label">Duration</div>
+        </div>
+        
+        <div class="metric-box">
+          <div class="metric-value" id="movementStrength">0.0</div>
+          <div class="metric-label">Movement</div>
+        </div>
+        
+        <div class="metric-box">
+          <div id="motionState" class="metric-value" style="font-size: 1.2rem;">-</div>
+          <div class="metric-label">State</div>
+        </div>
+      </div>
+
+      <!-- GPS Accuracy -->
+      <div style="margin-top: 15px; padding: 12px; background: #f3f4f6; border-radius: 10px; font-size: 0.8rem; color: #6b7280;">
+        <div style="display: flex; justify-content: space-around; text-align: center;">
+          <div>
+            <div style="font-size: 1.2rem; font-weight: bold; color: #667eea;" id="gpsAccuracy">-</div>
+            <div>GPS Accuracy</div>
+          </div>
+          <div>
+            <div style="font-size: 1.2rem; font-weight: bold; color: #667eea;" id="updateCount">0</div>
+            <div>Updates</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stop Button -->
+      <button id="stopBtn" class="big-button" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);">
+        ⏹️ Stop Tracking
+      </button>
+      
+      <div style="margin-top: 15px; padding: 12px; background: #dbeafe; border-radius: 10px; font-size: 0.85rem; color: #1e40af;">
+        <strong>💡 Walk around!</strong><br>
+        Speed updates from GPS (~1 sec delay)<br>
+        Movement shows instant sensor response
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let updateCount = 0;
+    let isActive = false;
+    let startTime = null;
+    let totalDistance = 0;
+    let lastPosition = null;
+    let durationInterval = null;
+    let gpsWatcher = null;
+    
+    // Track previous acceleration to detect changes
+    let lastAccel = { x: 0, y: 0, z: 0 };
+    let isCalibrated = false;
+    let calibrationCount = 0;
+    
+    const statusEl = document.getElementById('status');
+    const startBtn = document.getElementById('startBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const sensorDataEl = document.getElementById('sensorData');
+    const speedEl = document.getElementById('speed');
+    const distanceEl = document.getElementById('distance');
+    const durationEl = document.getElementById('duration');
+    const movementStrengthEl = document.getElementById('movementStrength');
+    const motionStateEl = document.getElementById('motionState');
+    const gpsAccuracyEl = document.getElementById('gpsAccuracy');
+    const updateCountEl = document.getElementById('updateCount');
+
+    function setStatus(message, type) {
+      statusEl.textContent = message;
+      statusEl.className = 'status status-' + type;
+    }
+
+    function formatDuration(seconds) {
+      const mins = Math.floor(seconds / 60);
+      const secs = Math.floor(seconds % 60);
+      return `${mins}:${secs.toString().padStart(2, '0')}`;
+    }
+
+    function calculateDistance(lat1, lon1, lat2, lon2) {
+      // Haversine formula for distance between two GPS points
+      const R = 6371; // Earth's radius in kilometers
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLon/2) * Math.sin(dLon/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      return R * c;
+    }
+
+    async function startTracking() {
+      startBtn.disabled = true;
+      setStatus('Requesting permissions...', 'waiting');
+
+      try {
+        // Request motion permission (iOS)
+        if (typeof DeviceMotionEvent !== 'undefined' && 
+            typeof DeviceMotionEvent.requestPermission === 'function') {
+          const permission = await DeviceMotionEvent.requestPermission();
+          if (permission !== 'granted') {
+            setStatus('❌ Motion permission denied', 'error');
+            startBtn.disabled = false;
+            return;
+          }
+        }
+
+        // Request GPS permission
+        if (!navigator.geolocation) {
+          setStatus('❌ GPS not available', 'error');
+          startBtn.disabled = false;
+          return;
+        }
+
+        startSensors();
+      } catch (error) {
+        setStatus('❌ Error: ' + error.message, 'error');
+        startBtn.disabled = false;
+      }
+    }
+
+    function startSensors() {
+      setStatus('📊 Calibrating...', 'waiting');
+      sensorDataEl.style.display = 'block';
+      startBtn.style.display = 'none';
+      isActive = true;
+      isCalibrated = false;
+      calibrationCount = 0;
+      startTime = Date.now();
+      
+      // Load existing trip distance from localStorage
+      try {
+        const state = JSON.parse(localStorage.getItem('safetyCoachState') || '{}');
+        if (state.currentTripDistance) {
+          totalDistance = state.currentTripDistance;
+          distanceEl.textContent = totalDistance.toFixed(3);
+        } else {
+          totalDistance = 0;
+        }
+      } catch (e) {
+        totalDistance = 0;
+      }
+      
+      lastPosition = null;
+
+      // Start motion sensor
+      window.addEventListener('devicemotion', handleMotion);
+
+      // Start GPS tracking
+      gpsWatcher = navigator.geolocation.watchPosition(
+        handleGPS,
+        (error) => {
+          console.error('GPS error:', error);
+          setStatus('⚠️ GPS error - using motion only', 'moving');
+        },
+        {
+          enableHighAccuracy: true,
+          maximumAge: 1000,
+          timeout: 5000
+        }
+      );
+
+      // Update duration display
+      durationInterval = setInterval(() => {
+        if (!isActive) return;
+        const elapsed = (Date.now() - startTime) / 1000;
+        durationEl.textContent = formatDuration(elapsed);
+      }, 1000);
+
+      setStatus('✅ Tracking active!', 'moving');
+    }
+
+    function handleGPS(position) {
+      if (!isActive) return;
+
+      const { latitude, longitude, speed: gpsSpeed, accuracy } = position.coords;
+      
+      // Update GPS accuracy display
+      gpsAccuracyEl.textContent = accuracy ? `±${accuracy.toFixed(0)}m` : 'N/A';
+
+      // Calculate speed (GPS provides speed in m/s)
+      if (gpsSpeed !== null && gpsSpeed >= 0) {
+        const speedKmh = gpsSpeed * 3.6; // m/s to km/h
+        speedEl.textContent = speedKmh.toFixed(1);
+        
+        // Add pulse effect when moving fast
+        if (speedKmh > 1) {
+          speedEl.className = 'big-value pulse';
+        } else {
+          speedEl.className = 'big-value';
+        }
+      }
+
+      // Calculate distance from position changes
+      if (lastPosition) {
+        const dist = calculateDistance(
+          lastPosition.latitude,
+          lastPosition.longitude,
+          latitude,
+          longitude
+        );
+        
+        // Only add if distance is reasonable (< 0.5 km per update)
+        if (dist < 0.5) {
+          totalDistance += dist;
+          distanceEl.textContent = totalDistance.toFixed(3);
+          
+          // Save to localStorage for dashboard sync
+          try {
+            const state = JSON.parse(localStorage.getItem('safetyCoachState') || '{}');
+            state.currentTripDistance = totalDistance;
+            localStorage.setItem('safetyCoachState', JSON.stringify(state));
+          } catch (e) {
+            console.error('Error saving state:', e);
+          }
+        }
+      }
+
+      lastPosition = { latitude, longitude };
+    }
+
+    function handleMotion(event) {
+      if (!isActive) return;
+
+      updateCount++;
+      updateCountEl.textContent = updateCount;
+
+      const accel = event.accelerationIncludingGravity;
+      if (!accel) return;
+
+      const current = {
+        x: accel.x || 0,
+        y: accel.y || 0,
+        z: accel.z || 0
+      };
+
+      // Calibration phase
+      if (!isCalibrated) {
+        calibrationCount++;
+        if (calibrationCount === 1) {
+          lastAccel = current;
+        } else if (calibrationCount >= 10) {
+          isCalibrated = true;
+          setStatus('✅ Ready - start walking!', 'moving');
+        }
+        return;
+      }
+
+      // Calculate movement delta (actual motion, not gravity)
+      const deltaX = Math.abs(current.x - lastAccel.x);
+      const deltaY = Math.abs(current.y - lastAccel.y);
+      const deltaZ = Math.abs(current.z - lastAccel.z);
+      const movementDelta = Math.sqrt(deltaX*deltaX + deltaY*deltaY + deltaZ*deltaZ);
+      
+      movementStrengthEl.textContent = movementDelta.toFixed(2);
+      
+      // Movement threshold
+      const MOVEMENT_THRESHOLD = 0.5;
+      
+      if (movementDelta > MOVEMENT_THRESHOLD) {
+        // Moving
+        setStatus('🚶‍♂️ Moving detected!', 'moving');
+        movementStrengthEl.style.color = '#10b981';
+        motionStateEl.textContent = '🚶‍♂️';
+        motionStateEl.style.color = '#10b981';
+      } else {
+        // Still
+        if (updateCount % 20 === 0) { // Update less frequently when still
+          setStatus('🛑 Standing still', 'still');
+        }
+        movementStrengthEl.style.color = '#667eea';
+        motionStateEl.textContent = '🛑';
+        motionStateEl.style.color = '#3b82f6';
+      }
+      
+      lastAccel = current;
+    }
+
+    function stopTracking() {
+      isActive = false;
+      
+      if (gpsWatcher) {
+        navigator.geolocation.clearWatch(gpsWatcher);
+      }
+      
+      if (durationInterval) {
+        clearInterval(durationInterval);
+      }
+      
+      window.removeEventListener('devicemotion', handleMotion);
+      
+      setStatus('✅ Trip completed!', 'moving');
+      
+      // Show summary
+      const elapsed = (Date.now() - startTime) / 1000;
+      const avgSpeed = (totalDistance / (elapsed / 3600)).toFixed(1);
+      
+      setTimeout(() => {
+        alert(`Trip Summary:\n\nDistance: ${totalDistance.toFixed(3)} km\nDuration: ${formatDuration(elapsed)}\nAvg Speed: ${avgSpeed} km/h\n\nNice work! 🎉`);
+        
+        // Reset for new trip
+        startBtn.style.display = 'block';
+        stopBtn.style.display = 'none';
+        sensorDataEl.style.display = 'none';
+        startBtn.disabled = false;
+        setStatus('Tap button to start', 'waiting');
+      }, 500);
+    }
+
+    startBtn.addEventListener('click', startTracking);
+    
+    if (stopBtn) {
+      stopBtn.addEventListener('click', stopTracking);
+    }
+
+    // Check URL parameters for auto-start and back button
+    const urlParams = new URLSearchParams(window.location.search);
+    const autostart = urlParams.get('autostart') === 'true';
+    const fromDashboard = urlParams.get('from') === 'dashboard';
+
+    // Show back button if coming from dashboard
+    if (fromDashboard) {
+      document.getElementById('backButton').style.display = 'block';
+    }
+
+    // Auto-start tracking if requested
+    if (autostart) {
+      setTimeout(() => {
+        startTracking();
+      }, 500); // Small delay to let UI load
+    }
+  </script>
+</body>
+</html>
