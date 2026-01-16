@@ -1,14 +1,25 @@
-import React from 'react';
+import * as React from "react"
+import { cn } from "../../lib/utils"
 
-export const Progress = ({ value = 0, max = 100, className = '', indicatorClassName = '' }) => {
+const Progress = React.forwardRef(({ className, value = 0, max = 100, indicatorClassName, ...props }, ref) => {
   const percentage = Math.min(Math.max((value / max) * 100, 0), 100);
   
   return (
-    <div className={`relative h-4 w-full overflow-hidden rounded-full bg-slate-200 ${className}`}>
+    <div
+      ref={ref}
+      className={cn(
+        "relative h-2 w-full overflow-hidden rounded-full bg-primary/20",
+        className
+      )}
+      {...props}
+    >
       <div
-        className={`h-full bg-emerald-500 transition-all duration-500 ease-out ${indicatorClassName}`}
-        style={{ width: `${percentage}%` }}
+        className={cn("h-full w-full flex-1 bg-primary transition-all duration-500", indicatorClassName)}
+        style={{ transform: `translateX(-${100 - percentage}%)` }}
       />
     </div>
-  );
-};
+  )
+})
+Progress.displayName = "Progress"
+
+export { Progress }

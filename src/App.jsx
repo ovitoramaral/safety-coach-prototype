@@ -1,8 +1,7 @@
-import React from 'react';
-import SafetyCoachDashboard from './SafetyCoachDashboard';
+import SafetyCoachIntegrated from './SafetyCoachIntegrated';
 
 function App() {
-  return <SafetyCoachDashboard />;
+  return <SafetyCoachIntegrated />;
 }
 
 export default App;
